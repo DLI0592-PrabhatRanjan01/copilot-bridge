@@ -100,9 +100,21 @@ def clone_or_pull_repo():
             capture_output=True, text=True, cwd=repo_dir, timeout=60
         )
         if result.returncode != 0:
-            print(f"[NOCOPO] Pull failed, re-cloning...")
+            print(f"[NOCOPO] Pull failed: {result.stderr[:200]}")
+            print(f"[NOCOPO] Removing and re-cloning...")
             shutil.rmtree(repo_dir, ignore_errors=True)
-            return clone_or_pull_repo()
+            # Wait a moment for filesystem to release
+            time.sleep(2)
+            # Fresh clone (no recursion)
+            if os.path.exists(repo_dir):
+                shutil.rmtree(repo_dir, ignore_errors=True)
+            result = subprocess.run(
+                ["git", "clone", "--branch", BRANCH, repo_url, repo_dir],
+                capture_output=True, text=True, timeout=60
+            )
+            if result.returncode != 0:
+                print(f"[NOCOPO] Clone also failed: {result.stderr[:200]}")
+                return None
     else:
         print(f"[NOCOPO] Cloning {GITHUB_USER}/{TARGET_REPO}...")
         if os.path.exists(repo_dir):
@@ -112,7 +124,7 @@ def clone_or_pull_repo():
             capture_output=True, text=True, timeout=60
         )
         if result.returncode != 0:
-            print(f"[NOCOPO] Clone failed: {result.stderr}")
+            print(f"[NOCOPO] Clone failed: {result.stderr[:200]}")
             return None
 
     print(f"[NOCOPO] Repo ready at: {repo_dir}")
