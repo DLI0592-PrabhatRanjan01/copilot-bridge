@@ -269,9 +269,12 @@ def main():
     last_target_commit = get_latest_commit(TARGET_REPO)
     print(f"[NOCOPO] Bridge commit: {last_bridge_commit[:7] if last_bridge_commit else 'N/A'}")
     print(f"[NOCOPO] Target commit: {last_target_commit[:7] if last_target_commit else 'N/A'}")
-    print()
 
-    iteration = 0
+    # Initialize iteration from current status
+    status = get_status()
+    iteration = status.get("iteration", 0) if status else 0
+    print(f"[NOCOPO] Starting at iteration: {iteration}")
+    print()
 
     try:
         while True:
