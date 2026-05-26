@@ -1,0 +1,17 @@
+=== Running web-scraper/main.py ===
+=== STDOUT ===
+==================================================
+  WEB-SCRAPER TEST RUN
+  Time: 2026-05-26 09:40:21
+==================================================
+[TEST] httpbin.org failed: HTTPSConnectionPool(host='httpbin.org', port=443): Max retries exceeded with url: /get (Caused by SSLError(SSLError(1, '[SSL: WRONG_VERSION_NUMBER] wrong version number (_ssl.c:1081)')))
+[TEST] BeautifulSoup: imported OK
+
+[TEST] Scraper module check...
+[TEST] DynamicScraper: imported OK
+
+[DONE] Test complete - NOCOPO is working!
+
+
+=== EXIT CODE: 0 ===
+=== STATUS: SUCCESS ===

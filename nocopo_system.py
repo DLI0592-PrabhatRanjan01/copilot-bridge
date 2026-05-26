@@ -88,60 +88,6 @@ def push_status(status_data):
     push_file("status.json", content, f"[NOCOPO] Status update: {status_data.get('state', 'unknown')}")
 
 
-def run_code(code_content):
-    """Run Python code safely and capture output."""
-    # Write code to a temporary file
-    temp_dir = tempfile.mkdtemp()
-    code_file = os.path.join(temp_dir, "test_code.py")
-
-    with open(code_file, "w", encoding="utf-8") as f:
-        f.write(code_content)
-
-    print(f"[NOCOPO] Running code...")
-
-    try:
-        result = subprocess.run(
-            [sys.executable, code_file],
-            capture_output=True,
-            text=True,
-            timeout=EXECUTION_TIMEOUT,
-            cwd=temp_dir
-        )
-
-        output_parts = []
-
-        if result.stdout:
-            output_parts.append("=== STDOUT ===")
-            output_parts.append(result.stdout)
-
-        if result.stderr:
-            output_parts.append("=== STDERR ===")
-            output_parts.append(result.stderr)
-
-        output_parts.append(f"\n=== EXIT CODE: {result.returncode} ===")
-
-        if result.returncode == 0:
-            output_parts.append("=== STATUS: SUCCESS ===")
-        else:
-            output_parts.append("=== STATUS: FAILED ===")
-
-        output = "\n".join(output_parts)
-
-    except subprocess.TimeoutExpired:
-        output = f"=== ERROR: Code execution timed out after {EXECUTION_TIMEOUT} seconds ===\n=== STATUS: TIMEOUT ==="
-    except Exception as e:
-        output = f"=== ERROR: Failed to execute code ===\n{str(e)}\n=== STATUS: ERROR ==="
-
-    # Cleanup
-    try:
-        os.remove(code_file)
-        os.rmdir(temp_dir)
-    except:
-        pass
-
-    return output
-
-
 def clone_or_pull_repo():
     """Clone the target repo if not exists, otherwise pull latest changes."""
     repo_dir = os.path.join(tempfile.gettempdir(), f"nocopo_{TARGET_REPO}")
