@@ -2,7 +2,7 @@
 NOCOPO SYSTEM - System without Copilot (sites unblocked, can test code)
 This script:
 1. Polls every 10 sec to check if COPO pushed new code
-2. Pulls the code, runs it, captures output (stdout + stderr)
+2. Pulls the detected repo (web-scraper), runs it, captures output
 3. Pushes the output back to GitHub
 4. Repeats until COPO marks as satisfied
 """
@@ -14,7 +14,7 @@ import json
 import base64
 import subprocess
 import tempfile
-import os
+import shutil
 import requests
 from datetime import datetime
 
@@ -22,9 +22,10 @@ from datetime import datetime
 PAT_TOKEN = os.environ.get("GITHUB_PAT", "")
 GITHUB_USER = "DLI0592-PrabhatRanjan01"
 REPO_NAME = "copilot-bridge"
+TARGET_REPO = "web-scraper"
 BRANCH = "main"
 POLL_INTERVAL = 10  # seconds
-EXECUTION_TIMEOUT = 60  # max seconds to run code
+EXECUTION_TIMEOUT = 120  # max seconds to run code
 
 API_BASE = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}"
 HEADERS = {
@@ -136,6 +137,108 @@ def run_code(code_content):
     return output
 
 
+def clone_or_pull_repo():
+    """Clone the target repo if not exists, otherwise pull latest changes."""
+    repo_dir = os.path.join(tempfile.gettempdir(), f"nocopo_{TARGET_REPO}")
+    repo_url = f"https://{PAT_TOKEN}@github.com/{GITHUB_USER}/{TARGET_REPO}.git"
+
+    if os.path.exists(os.path.join(repo_dir, ".git")):
+        print(f"[NOCOPO] Pulling latest changes for {TARGET_REPO}...")
+        result = subprocess.run(
+            ["git", "pull", "origin", BRANCH],
+            capture_output=True, text=True, cwd=repo_dir, timeout=60
+        )
+        if result.returncode != 0:
+            print(f"[NOCOPO] Pull failed, re-cloning...")
+            shutil.rmtree(repo_dir, ignore_errors=True)
+            return clone_or_pull_repo()
+    else:
+        print(f"[NOCOPO] Cloning {GITHUB_USER}/{TARGET_REPO}...")
+        if os.path.exists(repo_dir):
+            shutil.rmtree(repo_dir, ignore_errors=True)
+        result = subprocess.run(
+            ["git", "clone", "--branch", BRANCH, repo_url, repo_dir],
+            capture_output=True, text=True, timeout=60
+        )
+        if result.returncode != 0:
+            print(f"[NOCOPO] Clone failed: {result.stderr}")
+            return None
+
+    print(f"[NOCOPO] Repo ready at: {repo_dir}")
+    return repo_dir
+
+
+def find_entry_point(repo_dir):
+    """Find the main entry point script in the repo."""
+    candidates = ["main.py", "app.py", "run.py", "scraper.py", "index.py", "start.py"]
+    for name in candidates:
+        path = os.path.join(repo_dir, name)
+        if os.path.exists(path):
+            return path
+    # Fallback: find any .py file in root
+    for f in os.listdir(repo_dir):
+        if f.endswith(".py") and not f.startswith("__"):
+            return os.path.join(repo_dir, f)
+    return None
+
+
+def install_requirements(repo_dir):
+    """Install requirements.txt if present."""
+    req_file = os.path.join(repo_dir, "requirements.txt")
+    if os.path.exists(req_file):
+        print(f"[NOCOPO] Installing requirements...")
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
+            capture_output=True, text=True, timeout=120, cwd=repo_dir
+        )
+        if result.returncode == 0:
+            print(f"[NOCOPO] Requirements installed.")
+        else:
+            print(f"[NOCOPO] Some requirements failed: {result.stderr[:200]}")
+
+
+def run_target_repo():
+    """Clone/pull the target repo and run it."""
+    repo_dir = clone_or_pull_repo()
+    if not repo_dir:
+        return "=== ERROR: Failed to clone/pull target repo ===\n=== STATUS: ERROR ==="
+
+    install_requirements(repo_dir)
+
+    entry_point = find_entry_point(repo_dir)
+    if not entry_point:
+        return f"=== ERROR: No Python entry point found in {TARGET_REPO} ===\n=== STATUS: ERROR ==="
+
+    print(f"[NOCOPO] Running: {os.path.basename(entry_point)}")
+
+    try:
+        result = subprocess.run(
+            [sys.executable, entry_point],
+            capture_output=True, text=True,
+            timeout=EXECUTION_TIMEOUT, cwd=repo_dir
+        )
+
+        output_parts = []
+        output_parts.append(f"=== Running {TARGET_REPO}/{os.path.basename(entry_point)} ===")
+
+        if result.stdout:
+            output_parts.append("=== STDOUT ===")
+            output_parts.append(result.stdout)
+        if result.stderr:
+            output_parts.append("=== STDERR ===")
+            output_parts.append(result.stderr)
+
+        output_parts.append(f"\n=== EXIT CODE: {result.returncode} ===")
+        output_parts.append(f"=== STATUS: {'SUCCESS' if result.returncode == 0 else 'FAILED'} ===")
+
+        return "\n".join(output_parts)
+
+    except subprocess.TimeoutExpired:
+        return f"=== ERROR: {TARGET_REPO} timed out after {EXECUTION_TIMEOUT}s ===\n=== STATUS: TIMEOUT ==="
+    except Exception as e:
+        return f"=== ERROR: Failed to run {TARGET_REPO} ===\n{str(e)}\n=== STATUS: ERROR ==="
+
+
 def push_output(output, iteration):
     """Push execution output to GitHub."""
     push_file("output.txt", output, f"[NOCOPO] Output for iteration {iteration}")
@@ -152,8 +255,9 @@ def push_output(output, iteration):
 
 def main():
     print("=" * 60)
-    print("  NOCOPO SYSTEM - Copilot Bridge (Code Runner)")
+    print("  NOCOPO SYSTEM - Copilot Bridge (Repo Runner)")
     print("=" * 60)
+    print(f"[NOCOPO] Target repo: {GITHUB_USER}/{TARGET_REPO}")
     print(f"[NOCOPO] Polling every {POLL_INTERVAL}s for code from COPO...")
     print(f"[NOCOPO] Execution timeout: {EXECUTION_TIMEOUT}s")
     print("[NOCOPO] Press Ctrl+C to stop\n")
@@ -185,28 +289,19 @@ def main():
                 print(f"  Processing Iteration {iteration}")
                 print(f"{'─' * 40}")
 
-                # Pull the code
-                code, _ = get_file_content("code.py")
+                # Pull and run the target repo
+                print(f"[NOCOPO] Pulling and running {TARGET_REPO}...")
+                output = run_target_repo()
 
-                if code:
-                    print(f"[NOCOPO] Code received:\n{'─' * 30}")
-                    print(code[:300] + ("..." if len(code) > 300 else ""))
-                    print(f"{'─' * 30}")
+                print(f"\n[NOCOPO] Execution output:\n{'═' * 30}")
+                print(output)
+                print(f"{'═' * 30}")
 
-                    # Run the code
-                    output = run_code(code)
+                # Push the output
+                push_output(output, iteration)
+                last_processed_iteration = iteration
 
-                    print(f"\n[NOCOPO] Execution output:\n{'═' * 30}")
-                    print(output)
-                    print(f"{'═' * 30}")
-
-                    # Push the output
-                    push_output(output, iteration)
-                    last_processed_iteration = iteration
-
-                    print(f"[NOCOPO] Output pushed. Waiting for next iteration...")
-                else:
-                    print("[NOCOPO] Could not retrieve code.py")
+                print(f"[NOCOPO] Output pushed. Waiting for next iteration...")
 
             else:
                 print(f"[NOCOPO] Waiting... ({datetime.now().strftime('%H:%M:%S')})")
