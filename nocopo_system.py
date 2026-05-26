@@ -264,17 +264,98 @@ def check_target_changes():
     return False, current
 
 
+def poll_once():
+    """Run a single poll cycle: detect changes, pull & run, push output. Returns result dict."""
+    global last_bridge_commit, last_target_commit
+
+    if not PAT_TOKEN:
+        return {"success": False, "error": "GITHUB_PAT not set"}
+
+    # Initialize if needed
+    if last_bridge_commit is None:
+        last_bridge_commit = get_latest_commit(REPO_NAME)
+    if last_target_commit is None:
+        last_target_commit = get_latest_commit(TARGET_REPO)
+
+    # Get current iteration
+    status = get_status()
+    iteration = status.get("iteration", 0) if status else 0
+
+    triggered = False
+    trigger_reason = ""
+
+    # 1. Check copilot-bridge for changes
+    bridge_changed, bridge_sha = check_bridge_changes()
+    if bridge_changed:
+        info = get_commit_info(REPO_NAME, bridge_sha)
+        if info and "[NOCOPO]" not in info["message"]:
+            triggered = True
+            trigger_reason = f"copilot-bridge changed: {info['message']}"
+
+    # 2. Check web-scraper for changes
+    target_changed, target_sha = check_target_changes()
+    if target_changed:
+        info = get_commit_info(TARGET_REPO, target_sha)
+        if info:
+            triggered = True
+            trigger_reason = f"web-scraper changed: {info['message']}"
+
+    # 3. Check status.json trigger
+    if not triggered and status:
+        if status.get("state") == "satisfied":
+            return {"success": True, "changes": False, "message": "COPO is satisfied. Done."}
+        if (status.get("state") == "code_ready" and
+            status.get("pushed_by") == "copo" and
+            status.get("iteration", 0) > iteration):
+            triggered = True
+            trigger_reason = f"COPO pushed code (iteration {status['iteration']})"
+            iteration = status["iteration"]
+
+    if not triggered:
+        return {"success": True, "changes": False, "message": "No changes detected"}
+
+    iteration += 1 if "COPO pushed" not in trigger_reason else 0
+    print(f"\n[NOCOPO] Change detected - Iteration {iteration}")
+    print(f"  Reason: {trigger_reason}")
+
+    # Pull and run
+    output = run_target_repo()
+    print(f"\n[NOCOPO] Output:\n{output[:2000]}")
+
+    # Push output
+    push_output(output, iteration)
+
+    return {
+        "success": True,
+        "changes": True,
+        "iteration": iteration,
+        "trigger": trigger_reason,
+        "output": output[:5000]
+    }
+
+
 def main():
     global last_bridge_commit, last_target_commit
+
+    once_mode = "--once" in sys.argv
 
     print("=" * 60)
     print("  NOCOPO SYSTEM - Copilot Bridge (Auto-Detect & Run)")
     print("=" * 60)
     print(f"[NOCOPO] Monitoring: {GITHUB_USER}/{REPO_NAME}")
     print(f"[NOCOPO] Target repo: {GITHUB_USER}/{TARGET_REPO}")
-    print(f"[NOCOPO] Polling every {POLL_INTERVAL}s for changes...")
+    if once_mode:
+        print("[NOCOPO] Mode: SINGLE POLL (--once)")
+    else:
+        print(f"[NOCOPO] Polling every {POLL_INTERVAL}s for changes...")
     print(f"[NOCOPO] Execution timeout: {EXECUTION_TIMEOUT}s")
-    print("[NOCOPO] Press Ctrl+C to stop\n")
+    if not once_mode:
+        print("[NOCOPO] Press Ctrl+C to stop")
+    print()
+
+    if not PAT_TOKEN:
+        print("[ERROR] Set GITHUB_PAT environment variable!")
+        sys.exit(1)
 
     # Initialize: get current commit SHAs
     last_bridge_commit = get_latest_commit(REPO_NAME)
@@ -287,6 +368,12 @@ def main():
     iteration = status.get("iteration", 0) if status else 0
     print(f"[NOCOPO] Starting at iteration: {iteration}")
     print()
+
+    if once_mode:
+        result = poll_once()
+        print(f"\n[NOCOPO] Result: {json.dumps(result, indent=2, default=str)}")
+        print("[NOCOPO] Single poll complete. Exiting.")
+        return result
 
     try:
         while True:
