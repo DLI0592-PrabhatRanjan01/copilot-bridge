@@ -188,6 +188,9 @@ def run_pipeline():
         # Also scan copilot-bridge files
         bridge_dir = os.path.dirname(os.path.abspath(__file__))
         bridge_files = []
+        # These files are pipeline artifacts - they get pushed/overwritten later in the pipeline
+        # No need to push them in the initial scan (avoids redundant commits)
+        bridge_artifact_patterns = {"output.txt", "status.json"}
         for root, dirs, files in os.walk(bridge_dir):
             dirs[:] = [d for d in dirs if d not in ignore_dirs]
             for fname in files:
@@ -195,6 +198,9 @@ def run_pipeline():
                 if ext in track_ext:
                     full_path = os.path.join(root, fname)
                     rel_path = os.path.relpath(full_path, bridge_dir).replace("\\", "/")
+                    # Skip pipeline artifacts and output iteration files
+                    if rel_path in bridge_artifact_patterns or rel_path.startswith("output_iteration"):
+                        continue
                     bridge_files.append((rel_path, full_path))
 
         # Store push info for dashboard
