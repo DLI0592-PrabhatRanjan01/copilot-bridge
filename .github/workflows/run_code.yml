@@ -1,0 +1,82 @@
+name: Run Code (NOCOPO)
+
+on:
+  push:
+    paths:
+      - 'code.py'
+      - 'status.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run-code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4 lxml
+
+      - name: Check if code needs running
+        id: check
+        run: |
+          if [ -f status.json ]; then
+            STATE=$(python -c "import json; d=json.load(open('status.json')); print(d.get('state',''))")
+            PUSHED_BY=$(python -c "import json; d=json.load(open('status.json')); print(d.get('pushed_by',''))")
+            if [ "$STATE" = "code_ready" ] && [ "$PUSHED_BY" = "copo" ]; then
+              echo "should_run=true" >> $GITHUB_OUTPUT
+            else
+              echo "should_run=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run code.py
+        if: steps.check.outputs.should_run == 'true'
+        run: |
+          echo "Running code.py..."
+          python code.py > output_raw.txt 2>&1 || true
+          echo "Exit code: $?" >> output_raw.txt
+
+      - name: Push output
+        if: steps.check.outputs.should_run == 'true'
+        run: |
+          git config user.name "NOCOPO-Bot"
+          git config user.email "nocopo@github-actions"
+          
+          # Copy output
+          cp output_raw.txt output.txt
+          
+          # Update status
+          python -c "
+import json
+from datetime import datetime
+status = {
+    'state': 'output_ready',
+    'pushed_by': 'nocopo',
+    'iteration': 1,
+    'timestamp': datetime.now().isoformat(),
+    'message': 'Output ready from GitHub Actions'
+}
+# Try to read current iteration
+try:
+    with open('status.json') as f:
+        old = json.load(f)
+    status['iteration'] = old.get('iteration', 1)
+except: pass
+with open('status.json', 'w') as f:
+    json.dump(status, f, indent=2)
+"
+          
+          git add output.txt status.json
+          git commit -m '[NOCOPO] Output ready' || echo 'No changes to commit'
+          git push
