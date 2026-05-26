@@ -1,11 +1,8 @@
-=== Target: web-scraper ===
-=== Command: python main.py --arg ===
-=== Timestamp: 2026-05-26T15:56:16.547928 ===
-
+=== Running web-scraper/main.py ===
 === STDOUT ===
 ==================================================
   WEB-SCRAPER TEST RUN v3
-  Time: 2026-05-26 15:56:14
+  Time: 2026-05-26 10:36:07
 ==================================================
 [TEST] httpbin.org failed: HTTPSConnectionPool(host='httpbin.org', port=443): Max retries exceeded with url: /get (Caused by SSLError(SSLError(1, '[SSL: WRONG_VERSION_NUMBER] wrong version number (_ssl.c:1081)')))
 [TEST] BeautifulSoup: imported OK
