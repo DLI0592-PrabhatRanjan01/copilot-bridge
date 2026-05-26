@@ -1,0 +1,660 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copilot Bridge - Dynamic Pipeline</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0d1117; color: #c9d1d9;
+            min-height: 100vh; padding: 20px;
+        }
+        .header { text-align: center; padding: 20px 0; margin-bottom: 20px; border-bottom: 1px solid #30363d; }
+        .header h1 { color: #58a6ff; font-size: 24px; margin-bottom: 5px; }
+        .header p { color: #8b949e; font-size: 14px; }
+
+        .layout { display: grid; grid-template-columns: 320px 1fr; gap: 20px; max-width: 1500px; margin: 0 auto; }
+        @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+        .panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+        .panel-header { padding: 12px 16px; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 10px; }
+        .panel-header h2 { font-size: 15px; color: #f0f6fc; flex: 1; }
+        .panel-body { padding: 16px; }
+
+        .config-group { margin-bottom: 14px; }
+        .config-group label { display: block; font-size: 12px; color: #8b949e; margin-bottom: 4px; font-weight: 600; }
+        .config-group input, .config-group select {
+            width: 100%; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
+            padding: 8px 10px; border-radius: 6px; font-size: 13px;
+        }
+        .config-group input:focus { border-color: #58a6ff; outline: none; }
+        .config-group .hint { font-size: 11px; color: #6e7681; margin-top: 2px; }
+
+        button {
+            background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
+            padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+            transition: all 0.2s; width: 100%;
+        }
+        button:hover { background: #30363d; border-color: #58a6ff; }
+        button.primary { background: #238636; border-color: #2ea043; color: #fff; font-size: 15px; padding: 12px; }
+        button.primary:hover { background: #2ea043; }
+        button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.stop { background: #da3633; border-color: #f85149; color: #fff; font-size: 15px; padding: 12px; }
+        button.stop:hover { background: #f85149; }
+        button.stop:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.stop { background: #da3633; border-color: #f85149; color: #fff; font-size: 15px; padding: 12px; }
+        button.stop:hover { background: #f85149; }
+        button.stop:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .pipeline-steps { display: flex; flex-direction: column; gap: 4px; }
+        .step-row {
+            display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+            border-radius: 6px; border: 1px solid #21262d; transition: all 0.3s; cursor: pointer;
+        }
+        .step-row:hover { background: #21262d; }
+        .step-row.selected { outline: 2px solid #58a6ff; outline-offset: -2px; }
+        .step-row.pending { opacity: 0.5; }
+        .step-row.running { border-color: #58a6ff; background: #161b2280; animation: stepPulse 1.5s infinite; }
+        .step-row.done { border-color: #3fb950; background: #3fb95010; }
+        .step-row.error { border-color: #f85149; background: #f8514910; }
+        @keyframes stepPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(88,166,255,0.3); } 50% { box-shadow: 0 0 12px 2px rgba(88,166,255,0.2); } }
+
+        .step-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .step-info { flex: 1; }
+        .step-label { font-size: 13px; font-weight: 600; color: #f0f6fc; }
+        .step-message { font-size: 11px; color: #8b949e; margin-top: 2px; }
+        .step-system { font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 600; }
+        .step-system.copo { background: #1f6feb20; color: #58a6ff; }
+        .step-system.nocopo { background: #8957e520; color: #a371f7; }
+        .step-system.both { background: #3fb95020; color: #3fb950; }
+
+        .output-area {
+            background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+            padding: 14px; min-height: 200px; max-height: 400px; overflow-y: auto;
+            font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px;
+            line-height: 1.6; white-space: pre-wrap; word-break: break-all;
+        }
+
+        .push-info-box {
+            background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 14px;
+        }
+        .push-info-meta { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; margin-bottom: 10px; }
+        .push-info-meta dt { color: #8b949e; font-weight: 600; }
+        .push-info-meta dd { color: #c9d1d9; word-break: break-all; }
+        .push-files-list { max-height: 180px; overflow-y: auto; border-top: 1px solid #21262d; padding-top: 8px; }
+        .push-file-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12px; font-family: 'Cascadia Code', monospace; }
+        .push-file-item .file-icon { color: #8b949e; font-size: 11px; }
+        .push-file-item.ok .file-icon { color: #3fb950; }
+        .push-file-item.fail .file-icon { color: #f85149; }
+
+        .log-area {
+            background: #0d1117; border: 1px solid #30363d; border-radius: 4px;
+            padding: 12px; max-height: 180px; overflow-y: auto;
+            font-family: 'Cascadia Code', monospace; font-size: 11px; line-height: 1.5;
+        }
+        .log-entry { padding: 1px 0; }
+        .log-entry.info { color: #8b949e; }
+        .log-entry.success { color: #3fb950; }
+        .log-entry.warn { color: #d29922; }
+        .log-entry.error { color: #f85149; }
+        .log-entry.highlight { color: #58a6ff; }
+
+        .status-bar {
+            display: flex; gap: 12px; align-items: center; margin-bottom: 16px;
+            padding: 10px 16px; background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+            max-width: 1500px; margin: 0 auto 16px;
+        }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .status-dot.green { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+        .status-dot.red { background: #f85149; box-shadow: 0 0 6px #f85149; }
+        .status-dot.blue { background: #58a6ff; box-shadow: 0 0 6px #58a6ff; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .status-text { font-size: 13px; flex: 1; }
+        .status-meta { font-size: 11px; color: #8b949e; }
+
+        .history-item {
+            display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid #21262d;
+            font-size: 12px; align-items: center;
+        }
+        .history-item:last-child { border-bottom: none; }
+        .history-badge { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; }
+        .history-badge.success { background: #3fb95020; color: #3fb950; }
+        .history-badge.failed { background: #f8514920; color: #f85149; }
+
+        .right-panels { display: flex; flex-direction: column; gap: 16px; }
+        .checkbox-row { display: flex; align-items: center; gap: 8px; }
+        .checkbox-row input[type="checkbox"] { width: 16px; height: 16px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚡ Copilot Bridge - Dynamic Pipeline</h1>
+        <p>Push code from COPO → Run on NOCOPO → Get output back. Any repo, any command.</p>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-dot" id="serverDot"></div>
+        <span class="status-text" id="serverText">Connecting to bridge server...</span>
+        <span class="status-meta" id="serverMeta">localhost:8765</span>
+    </div>
+
+    <div class="layout">
+        <!-- LEFT: Config Panel -->
+        <div style="display:flex; flex-direction:column; gap:16px;">
+            <div class="panel">
+                <div class="panel-header"><h2>⚙️ Pipeline Config</h2></div>
+                <div class="panel-body">
+                    <div class="config-group">
+                        <label>GitHub PAT Token</label>
+                        <input type="password" id="cfgPatToken" placeholder="ghp_... or github_pat_..." />
+                        <div class="hint">Personal Access Token (stored in browser localStorage)</div>
+                    </div>
+                    <div class="config-group">
+                        <label>Local Repo Path (COPO)</label>
+                        <input type="text" id="cfgLocalPath" placeholder="C:\Users\...\my-project" />
+                        <div class="hint">Path to the local repo you want to push & run</div>
+                    </div>
+                    <div class="config-group">
+                        <label>GitHub Repo Name (target)</label>
+                        <input type="text" id="cfgTargetRepo" placeholder="web-scraper" />
+                        <div class="hint">The GitHub repo to push code to and run</div>
+                    </div>
+                    <div class="config-group">
+                        <label>GitHub User</label>
+                        <input type="text" id="cfgGithubUser" placeholder="DLI0592-PrabhatRanjan01" />
+                    </div>
+                    <div class="config-group">
+                        <label>Branch</label>
+                        <input type="text" id="cfgBranch" value="main" />
+                    </div>
+                    <div class="config-group">
+                        <label>Entry Point (optional)</label>
+                        <input type="text" id="cfgEntryPoint" placeholder="main.py (auto-detect if empty)" />
+                        <div class="hint">Leave empty to auto-detect (main.py, app.py, etc.)</div>
+                    </div>
+                    <div class="config-group">
+                        <label>Custom Run Command (optional)</label>
+                        <input type="text" id="cfgRunCommand" placeholder="python main.py --arg" />
+                        <div class="hint">Overrides entry point if set</div>
+                    </div>
+                    <div class="config-group">
+                        <label>Timeout (seconds)</label>
+                        <input type="number" id="cfgTimeout" value="120" min="10" max="600" />
+                    </div>
+                    <div class="config-group">
+                        <label>Commit Message (optional)</label>
+                        <input type="text" id="cfgCommitMessage" placeholder="Auto: lists changed file names" />
+                        <div class="hint">Custom message for push commit. Leave empty for auto.</div>
+                    </div>
+                    <div class="config-group">
+                        <label>Mode</label>
+                        <select id="cfgMode" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:8px 10px;border-radius:6px;font-size:13px;">
+                            <option value="single">Single Machine (COPO + NOCOPO here)</option>
+                            <option value="split">Split (NOCOPO on separate system)</option>
+                        </select>
+                        <div class="hint" style="font-size:11px;color:#6e7681;margin-top:2px;">Split mode: COPO pushes code, waits for NOCOPO server to run & return output</div>
+                    </div>
+                    <div class="config-group">
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="cfgSaveLocal" checked />
+                            <label style="margin:0">Save output locally</label>
+                        </div>
+                    </div>
+                    <div class="config-group">
+                        <label>Output Save Path (optional)</label>
+                        <input type="text" id="cfgOutputPath" placeholder="Same as local repo if empty" />
+                    </div>
+
+                    <button onclick="saveConfig()" style="margin-bottom:10px">💾 Save Config</button>
+                    <button class="primary" id="triggerBtn" onclick="triggerPipeline()">
+                        ▶ Run Pipeline
+                    </button>
+                    <button class="stop" id="stopBtn" onclick="stopPipeline()" style="display:none; margin-top:10px">
+                        ⏹ Stop Pipeline
+                    </button>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div class="panel">
+                <div class="panel-header"><h2>📜 Run History</h2></div>
+                <div class="panel-body" id="historyPanel">
+                    <div style="color:#8b949e; font-size:12px">No runs yet</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Steps + Output -->
+        <div class="right-panels">
+            <!-- Live Steps -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>🔄 Pipeline Steps</h2>
+                    <span id="pipelineStatus" style="font-size:11px; color:#8b949e">Idle</span>
+                </div>
+                <div class="panel-body">
+                    <div class="pipeline-steps" id="stepsContainer">
+                        <div style="color:#8b949e; font-size:13px; text-align:center; padding:20px;">
+                            Configure and trigger a pipeline to see live steps
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Output -->
+            <div class="panel">
+                <div class="panel-header"><h2>� Code Pushed</h2><span id="pushInfoStatus" style="font-size:11px; color:#8b949e"></span></div>
+                <div class="panel-body">
+                    <div class="push-info-box" id="pushInfoBox">
+                        <div style="color:#8b949e; font-size:13px; text-align:center; padding:10px;">
+                            Run a pipeline to see pushed code details
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Run Output -->
+            <div class="panel">
+                <div class="panel-header"><h2>�📤 Output</h2></div>
+                <div class="panel-body">
+                    <div class="output-area" id="outputArea">Waiting for pipeline execution...</div>
+                </div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>📋 Activity Log</h2>
+                    <button onclick="clearLog()" style="width:auto; padding:4px 10px; font-size:11px">Clear</button>
+                </div>
+                <div class="panel-body">
+                    <div class="log-area" id="logArea"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+const BRIDGE = 'http://localhost:8765';
+const CONFIG_KEY = 'copilot_bridge_config';
+let pollTimer = null;
+let serverConnected = false;
+
+function log(msg, type = 'info') {
+    const el = document.getElementById('logArea');
+    const t = new Date().toLocaleTimeString();
+    el.innerHTML = `<div class="log-entry ${type}">[${t}] ${msg}</div>` + el.innerHTML;
+}
+
+function clearLog() { document.getElementById('logArea').innerHTML = ''; }
+
+async function checkServer() {
+    try {
+        const r = await fetch(`${BRIDGE}/health`, { signal: AbortSignal.timeout(2000) });
+        if (r.ok) {
+            serverConnected = true;
+            document.getElementById('serverDot').className = 'status-dot green';
+            document.getElementById('serverText').textContent = 'Bridge server connected';
+            return true;
+        }
+    } catch {}
+    serverConnected = false;
+    document.getElementById('serverDot').className = 'status-dot red';
+    document.getElementById('serverText').textContent = 'Bridge server offline — run: python bridge_server.py';
+    return false;
+}
+
+function getConfigFromUI() {
+    return {
+        pat_token: document.getElementById('cfgPatToken').value.trim(),
+        local_repo_path: document.getElementById('cfgLocalPath').value.trim(),
+        target_repo: document.getElementById('cfgTargetRepo').value.trim(),
+        github_user: document.getElementById('cfgGithubUser').value.trim(),
+        branch: document.getElementById('cfgBranch').value.trim() || 'main',
+        entry_point: document.getElementById('cfgEntryPoint').value.trim(),
+        run_command: document.getElementById('cfgRunCommand').value.trim(),
+        timeout: parseInt(document.getElementById('cfgTimeout').value) || 120,
+        commit_message: document.getElementById('cfgCommitMessage').value.trim(),
+        mode: document.getElementById('cfgMode').value || 'single',
+        save_output_locally: document.getElementById('cfgSaveLocal').checked,
+        output_save_path: document.getElementById('cfgOutputPath').value.trim(),
+    };
+}
+
+function loadConfigToUI(cfg) {
+    if (cfg.pat_token) document.getElementById('cfgPatToken').value = cfg.pat_token;
+    document.getElementById('cfgLocalPath').value = cfg.local_repo_path || '';
+    document.getElementById('cfgTargetRepo').value = cfg.target_repo || '';
+    document.getElementById('cfgGithubUser').value = cfg.github_user || 'DLI0592-PrabhatRanjan01';
+    document.getElementById('cfgBranch').value = cfg.branch || 'main';
+    document.getElementById('cfgEntryPoint').value = cfg.entry_point || '';
+    document.getElementById('cfgRunCommand').value = cfg.run_command || '';
+    document.getElementById('cfgTimeout').value = cfg.timeout || 120;
+    document.getElementById('cfgCommitMessage').value = cfg.commit_message || '';
+    document.getElementById('cfgMode').value = cfg.mode || 'single';
+    document.getElementById('cfgSaveLocal').checked = cfg.save_output_locally !== false;
+    document.getElementById('cfgOutputPath').value = cfg.output_save_path || '';
+}
+
+async function saveConfig() {
+    const cfg = getConfigFromUI();
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+    if (!serverConnected) { log('Config saved locally (server offline)', 'warn'); return; }
+    try {
+        const r = await fetch(`${BRIDGE}/config`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cfg)
+        });
+        if (r.ok) { log('Config saved & sent to server', 'success'); }
+        else { log('Config saved locally, server rejected', 'warn'); }
+    } catch (e) { log(`Config save error: ${e.message}`, 'error'); }
+}
+
+async function triggerPipeline() {
+    if (!serverConnected) { log('Server offline!', 'error'); return; }
+    const cfg = getConfigFromUI();
+    if (!cfg.pat_token) { log('Set GitHub PAT Token first', 'error'); return; }
+    if (!cfg.local_repo_path) { log('Set Local Repo Path first', 'error'); return; }
+    if (!cfg.target_repo) { log('Set Target Repo Name first', 'error'); return; }
+
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+    document.getElementById('triggerBtn').disabled = true;
+    log(`Pipeline: ${cfg.local_repo_path} → ${cfg.target_repo}`, 'highlight');
+
+    try {
+        const r = await fetch(`${BRIDGE}/trigger`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cfg)
+        });
+        const data = await r.json();
+        if (r.ok) {
+            log('Pipeline started!', 'success');
+            startPolling();
+        } else {
+            log(`Error: ${data.error}`, 'error');
+            document.getElementById('triggerBtn').disabled = false;
+        }
+    } catch (e) {
+        log(`Trigger failed: ${e.message}`, 'error');
+        document.getElementById('triggerBtn').disabled = false;
+    }
+}
+
+async function stopPipeline() {
+    if (!serverConnected) { log('Server offline!', 'error'); return; }
+    try {
+        const r = await fetch(`${BRIDGE}/stop`, { method: 'POST' });
+        if (r.ok) {
+            log('Stop signal sent to pipeline', 'warn');
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('triggerBtn').disabled = false;
+        } else {
+            log('Failed to stop pipeline', 'error');
+        }
+    } catch (e) {
+        log(`Stop failed: ${e.message}`, 'error');
+    }
+}
+
+function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(pollSteps, 1000);
+}
+
+function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    document.getElementById('triggerBtn').disabled = false;
+}
+
+async function pollSteps() {
+    try {
+        const r = await fetch(`${BRIDGE}/status`);
+        const data = await r.json();
+        renderSteps(data.steps, data.current_step, data.running);
+        renderHistory(data.history);
+        document.getElementById('stopBtn').style.display = data.running ? 'block' : 'none';
+        if (data.push_info) renderPushInfo(data.push_info);
+
+        if (data.last_result && data.last_result.output) {
+            document.getElementById('outputArea').textContent = data.last_result.output;
+        }
+
+        if (!data.running && data.steps && data.steps.length > 0) {
+            setTimeout(() => stopPolling(), 2000);
+            const lastStep = data.steps[data.steps.length - 1];
+            if (lastStep.status === 'done') {
+                log('Pipeline completed successfully!', 'success');
+                document.getElementById('pipelineStatus').textContent = '✅ Complete';
+                document.getElementById('pipelineStatus').style.color = '#3fb950';
+            } else if (data.steps.some(s => s.status === 'error')) {
+                const errStep = data.steps.find(s => s.status === 'error');
+                log(`Pipeline failed at: ${errStep.label} — ${errStep.message}`, 'error');
+                document.getElementById('pipelineStatus').textContent = '❌ Failed';
+                document.getElementById('pipelineStatus').style.color = '#f85149';
+            }
+        }
+    } catch (e) {
+        log('Poll error: ' + e.message, 'error');
+    }
+}
+
+let currentStepsData = []; // Store steps data globally for click access
+
+function renderSteps(steps, currentStep, running) {
+    if (!steps || steps.length === 0) return;
+    currentStepsData = steps;
+    const container = document.getElementById('stepsContainer');
+    document.getElementById('pipelineStatus').textContent = running ? '⚡ Running...' : document.getElementById('pipelineStatus').textContent;
+    if (running) document.getElementById('pipelineStatus').style.color = '#58a6ff';
+
+    let html = '';
+    for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        const icon = step.status === 'done' ? '✅' :
+                     step.status === 'running' ? '⏳' :
+                     step.status === 'error' ? '❌' : '⬜';
+        const cls = step.status || 'pending';
+        html += `
+            <div class="step-row ${cls}" onclick="showStepOutput(${i})" title="Click to view step details">
+                <div class="step-icon">${icon}</div>
+                <div class="step-info">
+                    <div class="step-label">${step.label}</div>
+                    ${step.message ? `<div class="step-message">${step.message}</div>` : ''}
+                </div>
+                <span class="step-system ${step.system}">${step.system.toUpperCase()}</span>
+            </div>`;
+    }
+    container.innerHTML = html;
+}
+
+function showStepOutput(index) {
+    const step = currentStepsData[index];
+    if (!step) return;
+
+    // Highlight selected step
+    document.querySelectorAll('.step-row').forEach((el, i) => {
+        el.classList.toggle('selected', i === index);
+    });
+
+    // Build output text for this step
+    let output = `── Step: ${step.label} ──\n`;
+    output += `Status: ${step.status === 'done' ? '✅ Completed' : step.status === 'error' ? '❌ Failed' : step.status === 'running' ? '⏳ Running...' : '⬜ Pending'}\n`;
+    output += `System: ${step.system.toUpperCase()}\n`;
+    if (step.message) output += `Message: ${step.message}\n`;
+    output += `─────────────────────────────\n`;
+
+    if (step.output) {
+        output += `\n${step.output}`;
+    } else if (step.error) {
+        output += `\nError: ${step.error}`;
+    } else if (step.details) {
+        output += `\n${step.details}`;
+    } else if (step.status === 'pending') {
+        output += `\n(Step has not started yet)`;
+    } else if (step.status === 'running') {
+        output += `\n(Step is currently running...)`;
+    } else if (step.status === 'done' && !step.output) {
+        output += `\n(Step completed - no additional output)`;
+    } else if (step.status === 'error' && !step.output && !step.error) {
+        output += `\n(Step failed - ${step.message || 'no error details available'})`;
+    }
+
+    document.getElementById('outputArea').textContent = output;
+
+    // Also fetch step-specific output from server if available
+    fetchStepOutput(index);
+}
+
+async function fetchStepOutput(index) {
+    if (!serverConnected) return;
+    try {
+        const r = await fetch(`${BRIDGE}/step/${index}`);
+        if (r.ok) {
+            const data = await r.json();
+            if (data.output || data.error || data.details) {
+                const step = currentStepsData[index];
+                let output = `── Step: ${step.label} ──\n`;
+                output += `Status: ${step.status === 'done' ? '✅ Completed' : step.status === 'error' ? '❌ Failed' : step.status === 'running' ? '⏳ Running...' : '⬜ Pending'}\n`;
+                output += `System: ${step.system.toUpperCase()}\n`;
+                if (step.message) output += `Message: ${step.message}\n`;
+                output += `─────────────────────────────\n\n`;
+                if (data.output) output += data.output;
+                else if (data.error) output += `Error: ${data.error}`;
+                else if (data.details) output += data.details;
+                document.getElementById('outputArea').textContent = output;
+            }
+        }
+    } catch {}
+}
+
+function renderPushInfo(info) {
+    if (!info) return;
+    const box = document.getElementById('pushInfoBox');
+    const status = document.getElementById('pushInfoStatus');
+    const skipped = info.files_skipped ? info.files_skipped.length : 0;
+    const bridgeCommits = info.bridge && info.bridge.total_commits ? info.bridge.total_commits : (info.bridge ? info.bridge.total_pushed : 0);
+    const bridgePushed = info.bridge ? info.bridge.total_pushed : 0;
+    const bridgeSkipped = info.bridge && info.bridge.files_skipped ? info.bridge.files_skipped.length : 0;
+    status.textContent = `Target: ${info.total_pushed} changed, ${skipped} skip | Bridge: ${bridgeCommits} commits (${bridgePushed} files), ${bridgeSkipped} skip`;
+    status.style.color = info.files_failed && info.files_failed.length ? '#d29922' : '#3fb950';
+
+    let html = '';
+
+    // Target repo section
+    html += `<div style="margin-bottom:12px"><strong style="color:#58a6ff;font-size:13px">📁 ${info.github_user}/${info.target_repo}</strong>`;
+    html += `<span style="color:#8b949e;font-size:11px;margin-left:8px">${info.source_dir}</span></div>`;
+    html += '<dl class="push-info-meta">';
+    html += `<dt>Branch</dt><dd>${info.branch}</dd>`;
+    html += `<dt>Files</dt><dd>${info.total_pushed} pushed, ${skipped} unchanged${info.files_failed.length ? `, ${info.files_failed.length} failed` : ''} (${info.total_found} total)</dd>`;
+    html += '</dl>';
+    html += '<div class="push-files-list">';
+    for (const f of info.files_pushed) {
+        html += `<div class="push-file-item ok"><span class="file-icon">✔</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#3fb950">changed</span></div>`;
+    }
+    if (info.files_skipped) {
+        for (const f of info.files_skipped) {
+            html += `<div class="push-file-item"><span class="file-icon">─</span><span style="color:#8b949e">${f}</span><span style="margin-left:auto;font-size:10px;color:#8b949e">unchanged</span></div>`;
+        }
+    }
+    for (const f of info.files_failed) {
+        html += `<div class="push-file-item fail"><span class="file-icon">✘</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#f85149">failed</span></div>`;
+    }
+    if (info.files_pushed.length === 0 && info.files_failed.length === 0 && (!info.files_skipped || info.files_skipped.length === 0) && info.files_found) {
+        for (const f of info.files_found) {
+            html += `<div class="push-file-item"><span class="file-icon">○</span><span>${f}</span></div>`;
+        }
+    }
+    html += '</div>';
+
+    // Bridge repo section
+    if (info.bridge) {
+        html += `<div style="margin-top:16px;padding-top:12px;border-top:1px solid #30363d">`;
+        html += `<strong style="color:#a371f7;font-size:13px">📁 ${info.github_user}/copilot-bridge</strong>`;
+        html += `<span style="color:#8b949e;font-size:11px;margin-left:8px">${info.bridge.source_dir}</span></div>`;
+        html += '<dl class="push-info-meta">';
+        const bSkip = info.bridge.files_skipped ? info.bridge.files_skipped.length : 0;
+        const bFail = info.bridge.files_failed ? info.bridge.files_failed.length : 0;
+        const bCommits = info.bridge.total_commits || info.bridge.total_pushed;
+        html += `<dt>Files</dt><dd>${bCommits} pushed, ${bSkip} unchanged${bFail ? `, ${bFail} failed` : ''} (${info.bridge.total_found} total)</dd>`;
+        html += '</dl>';
+        html += '<div class="push-files-list">';
+        for (const f of info.bridge.files_pushed) {
+            html += `<div class="push-file-item ok"><span class="file-icon">✔</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#3fb950">changed</span></div>`;
+        }
+        if (info.bridge.files_skipped) {
+            for (const f of info.bridge.files_skipped) {
+                html += `<div class="push-file-item"><span class="file-icon">─</span><span style="color:#8b949e">${f}</span><span style="margin-left:auto;font-size:10px;color:#8b949e">unchanged</span></div>`;
+            }
+        }
+        if (info.bridge.files_failed) {
+            for (const f of info.bridge.files_failed) {
+                html += `<div class="push-file-item fail"><span class="file-icon">✘</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#f85149">failed</span></div>`;
+            }
+        }
+        html += '</div>';
+    }
+
+    box.innerHTML = html;
+}
+
+function renderHistory(history) {
+    if (!history || history.length === 0) return;
+    const el = document.getElementById('historyPanel');
+    let html = '';
+    for (const h of [...history].reverse().slice(0, 10)) {
+        const badge = h.run_status === 'SUCCESS' ? 'success' : 'failed';
+        const time = new Date(h.timestamp).toLocaleString();
+        html += `
+            <div class="history-item">
+                <span class="history-badge ${badge}">${h.run_status}</span>
+                <span style="flex:1;color:#c9d1d9">${h.target_repo} #${h.iteration}</span>
+                <span style="color:#8b949e;font-size:11px">${time}</span>
+            </div>`;
+    }
+    el.innerHTML = html;
+}
+
+async function init() {
+    const saved = localStorage.getItem(CONFIG_KEY);
+    if (saved) {
+        try { loadConfigToUI(JSON.parse(saved)); } catch {}
+    }
+    log('Dashboard initialized', 'success');
+    await checkServer();
+
+    if (serverConnected) {
+        try {
+            const r = await fetch(`${BRIDGE}/status`);
+            const data = await r.json();
+            if (data.config) {
+                const ui = getConfigFromUI();
+                if (!ui.local_repo_path && data.config.local_repo_path) {
+                    loadConfigToUI({ ...ui, ...data.config });
+                }
+            }
+            if (data.running) {
+                log('Pipeline already running, tracking...', 'highlight');
+                document.getElementById('stopBtn').style.display = 'block';
+                startPolling();
+            }
+            if (data.steps && data.steps.length > 0) {
+                renderSteps(data.steps, data.current_step, data.running);
+            }
+            if (data.last_result && data.last_result.output) {
+                document.getElementById('outputArea').textContent = data.last_result.output;
+            }
+            if (data.push_info) renderPushInfo(data.push_info);
+            renderHistory(data.history);
+        } catch {}
+    }
+}
+
+setInterval(checkServer, 10000);
+init();
+    </script>
+</body>
+</html>
