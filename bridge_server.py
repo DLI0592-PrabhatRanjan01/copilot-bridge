@@ -291,8 +291,11 @@ def run_pipeline():
             "run_command": config["run_command"],
             "message": f"Code pushed from {os.path.basename(local_path)}"
         }
-        push_file_to_github("copilot-bridge", "status.json",
+        status_result = push_file_to_github("copilot-bridge", "status.json",
                            json.dumps(bridge_status, indent=2).encode(), "[COPO] Code ready")
+        if status_result == "pushed" and "status.json" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
+            pipeline_state["push_info"]["bridge"]["files_pushed"].append("status.json")
+            pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
 
         # === STEP 3: DETECT (NOCOPO side) ===
         set_step("detect", "running", "Waiting for NOCOPO detection...")
@@ -448,8 +451,11 @@ def run_pipeline():
         # === STEP 8: PUSH output to bridge ===
         set_step("push_output", "running", "Pushing output to copilot-bridge...")
         iteration = len(pipeline_state["history"]) + 1
-        push_file_to_github("copilot-bridge", "output.txt",
+        out_result = push_file_to_github("copilot-bridge", "output.txt",
                            full_output.encode(), f"[NOCOPO] Output iteration {iteration}")
+        if out_result == "pushed" and "output.txt" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
+            pipeline_state["push_info"]["bridge"]["files_pushed"].append("output.txt")
+            pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
 
         output_status = {
             "state": "output_ready",
@@ -460,9 +466,12 @@ def run_pipeline():
             "timestamp": datetime.now().isoformat(),
             "message": f"Output ready ({run_status})"
         }
-        push_file_to_github("copilot-bridge", "status.json",
+        status_res = push_file_to_github("copilot-bridge", "status.json",
                            json.dumps(output_status, indent=2).encode(),
                            f"[NOCOPO] Status: output_ready")
+        if status_res == "pushed" and "status.json" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
+            pipeline_state["push_info"]["bridge"]["files_pushed"].append("status.json")
+            pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
         set_step("push_output", "done", "Output pushed to GitHub")
 
         # === STEP 9: RECEIVE output (COPO) ===
