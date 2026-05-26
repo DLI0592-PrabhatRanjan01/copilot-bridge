@@ -139,7 +139,7 @@ def push_multiple_files(repo_name, files, commit_message):
     base_url = api_base(repo_name)
 
     # 1. Get latest commit SHA for the branch
-    ref_url = f"{base_url}/git/ref/heads/{branch}"
+    ref_url = f"{base_url}/git/refs/heads/{branch}"
     resp = requests.get(ref_url, headers=headers)
     if resp.status_code != 200:
         return False
@@ -440,8 +440,14 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         # Single commit for all files
         success = push_multiple_files(bridge_repo, files_to_push, commit_msg)
         if not success:
-            set_step("push_output", "error", "Failed to push output")
-            return {"success": False, "error": "Push output failed"}
+            # Fallback: push files individually
+            all_ok = True
+            for f in files_to_push:
+                if not push_file(bridge_repo, f["path"], f["content"], commit_msg):
+                    all_ok = False
+            if not all_ok:
+                set_step("push_output", "error", "Failed to push output")
+                return {"success": False, "error": "Push output failed"}
 
         set_step("push_output", "done", f"Pushed {len(files_to_push)} files in 1 commit (iter {iteration})")
 
