@@ -149,11 +149,24 @@ def get_github_file_content(repo_name, filepath):
     return None
 
 
-def push_multiple_files_to_github(repo_name, files, commit_message):
+def push_multiple_files_to_github(repo_name, files, commit_message, retries=2):
     """Push multiple files in a single commit using Git Data API.
     files: list of {"path": "filename", "content_bytes": b"..."}
     Returns True on success.
     """
+    for attempt in range(retries + 1):
+        result = _try_push_multiple_files(repo_name, files, commit_message)
+        if result:
+            return True
+        if attempt < retries:
+            time.sleep(2)  # Wait before retry
+            print(f"[COPO] Multi-file push to {repo_name} failed (attempt {attempt+1}), retrying...")
+    print(f"[COPO] Multi-file push to {repo_name} failed after {retries+1} attempts")
+    return False
+
+
+def _try_push_multiple_files(repo_name, files, commit_message):
+    """Single attempt to push multiple files in one commit."""
     headers = get_headers()
     branch = pipeline_state["config"]["branch"]
     base_url = github_api_base(repo_name)
@@ -162,6 +175,7 @@ def push_multiple_files_to_github(repo_name, files, commit_message):
     ref_url = f"{base_url}/git/refs/heads/{branch}"
     resp = requests.get(ref_url, headers=headers)
     if resp.status_code != 200:
+        print(f"[COPO] Failed to get ref for {repo_name}: {resp.status_code}")
         return False
     latest_commit_sha = resp.json()["object"]["sha"]
 
@@ -169,6 +183,7 @@ def push_multiple_files_to_github(repo_name, files, commit_message):
     commit_url = f"{base_url}/git/commits/{latest_commit_sha}"
     resp = requests.get(commit_url, headers=headers)
     if resp.status_code != 200:
+        print(f"[COPO] Failed to get commit for {repo_name}: {resp.status_code}")
         return False
     base_tree_sha = resp.json()["tree"]["sha"]
 
@@ -182,6 +197,7 @@ def push_multiple_files_to_github(repo_name, files, commit_message):
         }
         resp = requests.post(blob_url, headers=headers, json=blob_data)
         if resp.status_code != 201:
+            print(f"[COPO] Failed to create blob for {file_info['path']}: {resp.status_code} {resp.text[:200]}")
             return False
         blob_sha = resp.json()["sha"]
         tree_items.append({
@@ -199,6 +215,7 @@ def push_multiple_files_to_github(repo_name, files, commit_message):
     }
     resp = requests.post(tree_url, headers=headers, json=tree_data)
     if resp.status_code != 201:
+        print(f"[COPO] Failed to create tree for {repo_name}: {resp.status_code} {resp.text[:200]}")
         return False
     new_tree_sha = resp.json()["sha"]
 
@@ -211,13 +228,17 @@ def push_multiple_files_to_github(repo_name, files, commit_message):
     }
     resp = requests.post(commit_create_url, headers=headers, json=commit_data)
     if resp.status_code != 201:
+        print(f"[COPO] Failed to create commit for {repo_name}: {resp.status_code} {resp.text[:200]}")
         return False
     new_commit_sha = resp.json()["sha"]
 
-    # 6. Update branch reference
-    update_data = {"sha": new_commit_sha, "force": False}
+    # 6. Update branch reference (force=True since we know our parent is correct)
+    update_data = {"sha": new_commit_sha, "force": True}
     resp = requests.patch(ref_url, headers=headers, json=update_data)
-    return resp.status_code == 200
+    if resp.status_code != 200:
+        print(f"[COPO] Failed to update ref for {repo_name}: {resp.status_code} {resp.text[:200]}")
+        return False
+    return True
 
 
 # ============================================================
@@ -343,6 +364,10 @@ def run_pipeline():
         if failed:
             msg += f", {len(failed)} failed"
         set_step("push", "done", f"{msg} (1 commit)")
+
+        # Brief pause to avoid GitHub API rate limiting between repos
+        if changed_files_target:
+            time.sleep(1)
 
         # Also push copilot-bridge files in ONE commit
         set_step("push", "done", f"{msg} | Checking copilot-bridge...")
