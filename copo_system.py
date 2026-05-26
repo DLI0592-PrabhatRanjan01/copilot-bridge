@@ -382,20 +382,18 @@ def wait_for_output(timeout=180):
     """Poll copilot-bridge for output from NOCOPO."""
     global last_known_commit
     start = time.time()
-
-    # Remember current status iteration to detect new output
-    current_status = get_status()
-    current_iter = current_status.get("iteration", 0) if current_status else 0
+    start_iso = datetime.now().isoformat()
 
     while time.time() - start < timeout:
         time.sleep(POLL_INTERVAL)
 
         status = get_status()
-        if status and status.get("state") == "output_ready" and status.get("pushed_by") == "nocopo":
-            # Check if this is new output (higher iteration)
-            if status.get("iteration", 0) > current_iter:
-                output, _ = get_file_content("output.txt")
-                return output
+        if (status and status.get("state") == "output_ready"
+                and status.get("pushed_by") == "nocopo"
+                and status.get("timestamp", "") > start_iso):
+            # New output arrived after we started waiting
+            output, _ = get_file_content("output.txt")
+            return output
 
         elapsed = int(time.time() - start)
         print(f"  [{elapsed}s] Waiting for NOCOPO...")
