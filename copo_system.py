@@ -218,8 +218,69 @@ def mark_satisfied():
     print("[COPO] Marked as SATISFIED. Process complete!")
 
 
+def poll_once():
+    """Run a single poll cycle: detect changes, push, wait for output. Returns result dict."""
+    global last_known_commit
+
+    if not PAT_TOKEN:
+        return {"success": False, "error": "GITHUB_PAT not set"}
+
+    if not os.path.isdir(LOCAL_REPO_DIR):
+        return {"success": False, "error": f"Local repo not found: {LOCAL_REPO_DIR}"}
+
+    # Initialize if needed
+    if last_known_commit is None:
+        last_known_commit = get_latest_commit()
+
+    if not file_hashes:
+        scan_local_files()
+
+    # Check for local file changes
+    changed_files = detect_local_changes()
+
+    if not changed_files:
+        return {"success": True, "changes": False, "message": "No local changes detected"}
+
+    # Get current iteration from status
+    status = get_status()
+    iteration = (status.get("iteration", 0) if status else 0) + 1
+
+    print(f"\n[COPO] Changes detected - Iteration {iteration}")
+    for f in changed_files:
+        print(f"  [CHANGED] {f}")
+
+    # Push changed files
+    print(f"[COPO] Pushing {len(changed_files)} file(s) to {TARGET_REPO}...")
+    pushed = push_changed_files(changed_files, iteration)
+
+    if pushed == 0:
+        return {"success": False, "error": "No files pushed (all failed)"}
+
+    print(f"[COPO] Pushed {pushed}/{len(changed_files)} files. Waiting for NOCOPO...")
+
+    # Wait for output
+    output = wait_for_output(timeout=180)
+    if output:
+        out_file = os.path.join(LOCAL_REPO_DIR, f"output_iter_{iteration}.txt")
+        with open(out_file, "w", encoding="utf-8") as f:
+            f.write(output)
+        return {
+            "success": True,
+            "changes": True,
+            "iteration": iteration,
+            "pushed": pushed,
+            "output": output[:5000],
+            "output_file": out_file
+        }
+    else:
+        return {"success": True, "changes": True, "iteration": iteration, "pushed": pushed,
+                "output": None, "message": "Timeout waiting for NOCOPO output"}
+
+
 def main():
     global last_known_commit
+
+    once_mode = "--once" in sys.argv
 
     print("=" * 60)
     print("  COPO SYSTEM - Auto Push & Read Output")
@@ -227,8 +288,12 @@ def main():
     print(f"[COPO] Local dir: {LOCAL_REPO_DIR}")
     print(f"[COPO] Target repo: {GITHUB_USER}/{TARGET_REPO}")
     print(f"[COPO] Bridge repo: {GITHUB_USER}/{REPO_NAME}")
-    print(f"[COPO] Polling every {POLL_INTERVAL}s")
-    print("[COPO] Press Ctrl+C to stop\n")
+    if once_mode:
+        print("[COPO] Mode: SINGLE POLL (--once)")
+    else:
+        print(f"[COPO] Polling every {POLL_INTERVAL}s")
+        print("[COPO] Press Ctrl+C to stop")
+    print()
 
     if not PAT_TOKEN:
         print("[ERROR] Set GITHUB_PAT environment variable!")
@@ -245,6 +310,12 @@ def main():
     # Initialize file hashes
     scan_local_files()
     print(f"[COPO] Tracking {len(file_hashes)} files\n")
+
+    if once_mode:
+        result = poll_once()
+        print(f"\n[COPO] Result: {json.dumps(result, indent=2, default=str)}")
+        print("[COPO] Single poll complete. Exiting.")
+        return result
 
     iteration = 0
 
