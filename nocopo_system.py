@@ -275,62 +275,70 @@ def main():
 
     try:
         while True:
-            triggered = False
-            trigger_reason = ""
+            try:
+                triggered = False
+                trigger_reason = ""
 
-            # 1. Check for changes in copilot-bridge repo
-            bridge_changed, bridge_sha = check_bridge_changes()
-            if bridge_changed:
-                info = get_commit_info(REPO_NAME, bridge_sha)
-                if info:
-                    # Skip if this was our own push (output/status)
-                    if "[NOCOPO]" not in info["message"]:
+                # 1. Check for changes in copilot-bridge repo
+                bridge_changed, bridge_sha = check_bridge_changes()
+                if bridge_changed:
+                    info = get_commit_info(REPO_NAME, bridge_sha)
+                    if info:
+                        # Skip if this was our own push (output/status)
+                        if "[NOCOPO]" not in info["message"]:
+                            triggered = True
+                            trigger_reason = f"copilot-bridge changed: {info['message']} (files: {', '.join(info['files'])})"
+
+                # 2. Check for changes in web-scraper repo
+                target_changed, target_sha = check_target_changes()
+                if target_changed:
+                    info = get_commit_info(TARGET_REPO, target_sha)
+                    if info:
                         triggered = True
-                        trigger_reason = f"copilot-bridge changed: {info['message']} (files: {', '.join(info['files'])})"
+                        trigger_reason = f"web-scraper changed: {info['message']} (files: {', '.join(info['files'])})"
 
-            # 2. Check for changes in web-scraper repo
-            target_changed, target_sha = check_target_changes()
-            if target_changed:
-                info = get_commit_info(TARGET_REPO, target_sha)
-                if info:
-                    triggered = True
-                    trigger_reason = f"web-scraper changed: {info['message']} (files: {', '.join(info['files'])})"
+                # 3. Also check status.json-based trigger from COPO
+                if not triggered:
+                    status = get_status()
+                    if status:
+                        if status.get("state") == "satisfied":
+                            print("\n[NOCOPO] COPO is satisfied! Process complete.")
+                            break
+                        if (status.get("state") == "code_ready" and
+                            status.get("pushed_by") == "copo" and
+                            status.get("iteration", 0) > iteration):
+                            triggered = True
+                            trigger_reason = f"COPO pushed code (iteration {status['iteration']})"
+                            iteration = status["iteration"]
 
-            # 3. Also check status.json-based trigger from COPO
-            if not triggered:
-                status = get_status()
-                if status:
-                    if status.get("state") == "satisfied":
-                        print("\n[NOCOPO] COPO is satisfied! Process complete.")
-                        break
-                    if (status.get("state") == "code_ready" and
-                        status.get("pushed_by") == "copo" and
-                        status.get("iteration", 0) > iteration):
-                        triggered = True
-                        trigger_reason = f"COPO pushed code (iteration {status['iteration']})"
-                        iteration = status["iteration"]
+                # Execute if triggered
+                if triggered:
+                    iteration += 1 if "COPO pushed" not in trigger_reason else 0
+                    print(f"\n{'─' * 50}")
+                    print(f"  CHANGE DETECTED - Iteration {iteration}")
+                    print(f"  Reason: {trigger_reason}")
+                    print(f"{'─' * 50}")
 
-            # Execute if triggered
-            if triggered:
-                iteration += 1 if "COPO pushed" not in trigger_reason else 0
-                print(f"\n{'─' * 50}")
-                print(f"  CHANGE DETECTED - Iteration {iteration}")
-                print(f"  Reason: {trigger_reason}")
-                print(f"{'─' * 50}")
+                    # Pull and run the target repo
+                    print(f"[NOCOPO] Pulling and running {TARGET_REPO}...")
+                    output = run_target_repo()
 
-                # Pull and run the target repo
-                print(f"[NOCOPO] Pulling and running {TARGET_REPO}...")
-                output = run_target_repo()
+                    print(f"\n[NOCOPO] Execution output:\n{'═' * 30}")
+                    print(output)
+                    print(f"{'═' * 30}")
 
-                print(f"\n[NOCOPO] Execution output:\n{'═' * 30}")
-                print(output)
-                print(f"{'═' * 30}")
+                    # Push the output
+                    push_output(output, iteration)
+                    print(f"[NOCOPO] Output pushed. Watching for next change...")
+                else:
+                    print(f"[NOCOPO] No changes detected. ({datetime.now().strftime('%H:%M:%S')})")
 
-                # Push the output
-                push_output(output, iteration)
-                print(f"[NOCOPO] Output pushed. Watching for next change...")
-            else:
-                print(f"[NOCOPO] No changes detected. ({datetime.now().strftime('%H:%M:%S')})")
+            except (requests.exceptions.ConnectionError,
+                    requests.exceptions.Timeout,
+                    requests.exceptions.RequestException) as e:
+                print(f"[NOCOPO] Network error (will retry): {type(e).__name__}")
+                time.sleep(POLL_INTERVAL)
+                continue
 
             time.sleep(POLL_INTERVAL)
 
