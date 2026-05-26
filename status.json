@@ -1,9 +1,7 @@
 {
   "state": "output_ready",
   "pushed_by": "nocopo",
-  "target_repo": "web-scraper",
   "iteration": 4,
-  "exit_code": 0,
-  "timestamp": "2026-05-26T15:45:49.284414",
-  "message": "Output ready (SUCCESS)"
+  "timestamp": "2026-05-26T10:36:13.948019",
+  "message": "Output for iteration 4 ready"
 }
