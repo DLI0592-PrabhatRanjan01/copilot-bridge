@@ -49,6 +49,7 @@ nocopo_state = {
         "last_check": None,
         "last_bridge_commit": None,
         "last_target_commit": None,
+        "last_status_timestamp": "",
         "checks_count": 0,
         "triggers_count": 0,
     },
@@ -242,30 +243,56 @@ def detect_changes():
     bridge_commit = get_latest_commit(config["bridge_repo"])
     if bridge_commit and bridge_commit != poll["last_bridge_commit"]:
         old = poll["last_bridge_commit"]
-        poll["last_bridge_commit"] = bridge_commit
         if old is not None:
             info = get_commit_info(config["bridge_repo"], bridge_commit)
             if info and "[NOCOPO]" not in info["message"]:
+                # Only mark as seen AFTER successful detection
+                poll["last_bridge_commit"] = bridge_commit
                 return True, f"Bridge commit: {info['message']} ({info['sha']})"
+            elif info and "[NOCOPO]" in info["message"]:
+                # It's our own commit, mark seen and skip
+                poll["last_bridge_commit"] = bridge_commit
+            elif info is None:
+                # API failed - do NOT update SHA so we retry next poll
+                print("[NOCOPO] Warning: get_commit_info failed for bridge, will retry")
+            else:
+                poll["last_bridge_commit"] = bridge_commit
+        else:
+            # First run initialization
+            poll["last_bridge_commit"] = bridge_commit
 
     # Check target repo for new commits
     target_commit = get_latest_commit(config["target_repo"])
     if target_commit and target_commit != poll["last_target_commit"]:
         old = poll["last_target_commit"]
-        poll["last_target_commit"] = target_commit
         if old is not None:
             info = get_commit_info(config["target_repo"], target_commit)
             if info:
+                # Only mark as seen AFTER successful detection
+                poll["last_target_commit"] = target_commit
                 return True, f"Target commit: {info['message']} ({info['sha']})"
+            else:
+                # API failed - do NOT update SHA so we retry next poll
+                print("[NOCOPO] Warning: get_commit_info failed for target, will retry")
+        else:
+            # First run initialization
+            poll["last_target_commit"] = target_commit
 
-    # Check status.json for COPO trigger
+    # Check status.json for COPO trigger (iteration OR timestamp based)
     status = get_status_json()
     if status:
         if status.get("state") == "code_ready" and status.get("pushed_by") == "copo":
             current_iter = status.get("iteration", 0)
             last_iter = nocopo_state["last_result"]["iteration"] if nocopo_state["last_result"] else 0
+            # Trigger if iteration is higher
             if current_iter > last_iter:
                 return True, f"COPO trigger: iteration {current_iter}"
+            # Also trigger if timestamp is newer (handles COPO restart with same iteration)
+            status_ts = status.get("timestamp", "")
+            last_ts = poll.get("last_status_timestamp", "")
+            if status_ts and status_ts > last_ts:
+                poll["last_status_timestamp"] = status_ts
+                return True, f"COPO trigger: new push at {status_ts[:19]} (iter {current_iter})"
 
     return False, "No changes"
 
@@ -494,6 +521,11 @@ def poll_loop():
     # Initialize commit SHAs
     poll["last_bridge_commit"] = get_latest_commit(config["bridge_repo"])
     poll["last_target_commit"] = get_latest_commit(config["target_repo"])
+
+    # Initialize status timestamp to avoid triggering on existing status.json
+    status = get_status_json()
+    if status:
+        poll["last_status_timestamp"] = status.get("timestamp", "")
 
     while nocopo_state["monitoring"]:
         try:
