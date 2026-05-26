@@ -173,6 +173,11 @@
                         <label>Timeout (seconds)</label>
                         <input type="number" id="cfgTimeout" value="120" min="10" max="600" />
                     </div>
+                    <div class="config-group">
+                        <label>Commit Message (optional)</label>
+                        <input type="text" id="cfgCommitMessage" placeholder="Auto: lists changed file names" />
+                        <div class="hint">Custom message for output push commit. Leave empty for auto.</div>
+                    </div>
 
                     <button onclick="saveConfig()" style="margin-bottom:10px">💾 Save Config</button>
                     <button class="start" id="btnStartMonitor" onclick="startMonitoring()">
@@ -312,6 +317,7 @@ function getConfigFromUI() {
         run_command: document.getElementById('cfgRunCommand').value.trim(),
         poll_interval: parseInt(document.getElementById('cfgPollInterval').value) || 10,
         timeout: parseInt(document.getElementById('cfgTimeout').value) || 120,
+        commit_message: document.getElementById('cfgCommitMessage').value.trim(),
     };
 }
 
@@ -325,6 +331,7 @@ function loadConfigToUI(cfg) {
     document.getElementById('cfgRunCommand').value = cfg.run_command || '';
     document.getElementById('cfgPollInterval').value = cfg.poll_interval || 10;
     document.getElementById('cfgTimeout').value = cfg.timeout || 120;
+    document.getElementById('cfgCommitMessage').value = cfg.commit_message || '';
 }
 
 async function saveConfig() {
