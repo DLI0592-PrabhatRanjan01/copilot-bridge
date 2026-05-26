@@ -40,6 +40,7 @@ pipeline_state = {
         "save_output_locally": True,
         "output_save_path": "", # Where to save output on COPO side
         "timeout": 120,
+        "mode": "single",      # "single" = all on one machine, "split" = NOCOPO on separate machine
     },
     "last_result": None,
     "history": [],              # Past run results
@@ -309,25 +310,84 @@ def run_pipeline():
 
         # === STEP 3: DETECT (NOCOPO side) ===
         set_step("detect", "running", "Waiting for NOCOPO detection...")
-        # In single-machine mode, we proceed directly
-        set_step("detect", "done", "Change detected")
 
-        # === STEP 4: PULL / CLONE ===
-        set_step("pull", "running", f"Cloning/pulling {target_repo}...")
-        token = config["pat_token"]
-        user = config["github_user"]
-        branch = config["branch"]
-        repo_dir = os.path.join(tempfile.gettempdir(), f"nocopo_{target_repo}")
-        repo_url = f"https://{token}@github.com/{user}/{target_repo}.git"
+        if config["mode"] == "split":
+            # SPLIT MODE: NOCOPO runs on a separate machine
+            # After pushing code + status, we wait for NOCOPO to pick it up and push output
+            set_step("detect", "done", "Code pushed - waiting for NOCOPO system...")
 
-        if os.path.exists(os.path.join(repo_dir, ".git")):
-            result = subprocess.run(
-                ["git", "pull", "origin", branch],
-                capture_output=True, text=True, cwd=repo_dir, timeout=60
-            )
-            if result.returncode != 0:
-                shutil.rmtree(repo_dir, ignore_errors=True)
-                time.sleep(1)
+            # Skip Steps 4-8 (handled by nocopo_server.py on other machine)
+            for skip_step in ["pull", "install", "run", "capture", "push_output"]:
+                set_step(skip_step, "done", "Handled by NOCOPO system")
+
+            # Poll for output_ready from NOCOPO
+            set_step("receive", "running", "Polling for NOCOPO output...")
+            iteration = len(pipeline_state["history"]) + 1
+            max_wait = config["timeout"] + 60  # Extra time for NOCOPO overhead
+            start_time = time.time()
+            full_output = None
+            exit_code = -1
+            run_status = "WAITING"
+
+            while time.time() - start_time < max_wait:
+                if not pipeline_state["running"]:
+                    break  # Stop signal received
+                status_sha, status_bytes = get_file_info("copilot-bridge", "status.json")
+                if status_bytes:
+                    try:
+                        status_data = json.loads(status_bytes.decode("utf-8"))
+                        if (status_data.get("state") == "output_ready" and
+                            status_data.get("pushed_by") == "nocopo" and
+                            status_data.get("iteration", 0) >= iteration):
+                            # NOCOPO has finished! Get the output
+                            exit_code = status_data.get("exit_code", 0)
+                            run_status = "SUCCESS" if exit_code == 0 else "FAILED"
+                            output_content = get_github_file_content("copilot-bridge", "output.txt")
+                            full_output = output_content or f"Output iteration {iteration} complete"
+                            break
+                    except (json.JSONDecodeError, UnicodeDecodeError):
+                        pass
+                elapsed = int(time.time() - start_time)
+                set_step("receive", "running", f"Waiting for NOCOPO... ({elapsed}s)")
+                time.sleep(5)
+
+            if full_output is None:
+                set_step("receive", "error", f"Timeout waiting for NOCOPO ({max_wait}s)")
+                return {"success": False, "error": "NOCOPO did not respond in time"}
+
+            set_step("receive", "done", f"Output received from NOCOPO ({run_status})")
+
+        else:
+            # SINGLE MODE: Run everything locally (original behavior)
+            set_step("detect", "done", "Change detected")
+
+            # === STEP 4: PULL / CLONE ===
+            set_step("pull", "running", f"Cloning/pulling {target_repo}...")
+            token = config["pat_token"]
+            user = config["github_user"]
+            branch = config["branch"]
+            repo_dir = os.path.join(tempfile.gettempdir(), f"nocopo_{target_repo}")
+            repo_url = f"https://{token}@github.com/{user}/{target_repo}.git"
+
+            if os.path.exists(os.path.join(repo_dir, ".git")):
+                result = subprocess.run(
+                    ["git", "pull", "origin", branch],
+                    capture_output=True, text=True, cwd=repo_dir, timeout=60
+                )
+                if result.returncode != 0:
+                    shutil.rmtree(repo_dir, ignore_errors=True)
+                    time.sleep(1)
+                    result = subprocess.run(
+                        ["git", "clone", "--branch", branch, repo_url, repo_dir],
+                        capture_output=True, text=True, timeout=60
+                    )
+                    if result.returncode != 0:
+                        set_step("pull", "error", f"Clone failed: {result.stderr[:200]}")
+                        return {"success": False, "error": "Clone failed"}
+                set_step("pull", "done", "Pulled latest changes")
+            else:
+                if os.path.exists(repo_dir):
+                    shutil.rmtree(repo_dir, ignore_errors=True)
                 result = subprocess.run(
                     ["git", "clone", "--branch", branch, repo_url, repo_dir],
                     capture_output=True, text=True, timeout=60
@@ -335,184 +395,172 @@ def run_pipeline():
                 if result.returncode != 0:
                     set_step("pull", "error", f"Clone failed: {result.stderr[:200]}")
                     return {"success": False, "error": "Clone failed"}
-            set_step("pull", "done", "Pulled latest changes")
-        else:
-            if os.path.exists(repo_dir):
-                shutil.rmtree(repo_dir, ignore_errors=True)
-            result = subprocess.run(
-                ["git", "clone", "--branch", branch, repo_url, repo_dir],
-                capture_output=True, text=True, timeout=60
-            )
-            if result.returncode != 0:
-                set_step("pull", "error", f"Clone failed: {result.stderr[:200]}")
-                return {"success": False, "error": "Clone failed"}
-            set_step("pull", "done", "Cloned fresh repo")
+                set_step("pull", "done", "Cloned fresh repo")
 
-        # === STEP 5: INSTALL dependencies ===
-        set_step("install", "running", "Checking for dependencies...")
-        req_file = os.path.join(repo_dir, "requirements.txt")
-        pkg_json = os.path.join(repo_dir, "package.json")
+            # === STEP 5: INSTALL dependencies ===
+            set_step("install", "running", "Checking for dependencies...")
+            req_file = os.path.join(repo_dir, "requirements.txt")
+            pkg_json = os.path.join(repo_dir, "package.json")
 
-        if os.path.exists(req_file):
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
-                capture_output=True, text=True, timeout=120, cwd=repo_dir
-            )
-            set_step("install", "done", "Python requirements installed")
-        elif os.path.exists(pkg_json):
-            result = subprocess.run(
-                ["npm", "install"],
-                capture_output=True, text=True, timeout=120, cwd=repo_dir, shell=True
-            )
-            set_step("install", "done", "npm packages installed")
-        else:
-            set_step("install", "done", "No dependencies file found (skipped)")
-
-        # === STEP 6: RUN the code ===
-        set_step("run", "running", "Executing code...")
-        run_cmd = config["run_command"]
-        entry = config["entry_point"]
-        timeout_sec = config["timeout"]
-
-        if run_cmd:
-            # Custom command
-            cmd_parts = run_cmd.split()
-        elif entry:
-            entry_path = os.path.join(repo_dir, entry)
-            if not os.path.exists(entry_path):
-                set_step("run", "error", f"Entry point not found: {entry}")
-                return {"success": False, "error": f"Entry not found: {entry}"}
-            if entry.endswith(".py"):
-                cmd_parts = [sys.executable, entry_path]
-            elif entry.endswith(".js"):
-                cmd_parts = ["node", entry_path]
+            if os.path.exists(req_file):
+                result = subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
+                    capture_output=True, text=True, timeout=120, cwd=repo_dir
+                )
+                set_step("install", "done", "Python requirements installed")
+            elif os.path.exists(pkg_json):
+                result = subprocess.run(
+                    ["npm", "install"],
+                    capture_output=True, text=True, timeout=120, cwd=repo_dir, shell=True
+                )
+                set_step("install", "done", "npm packages installed")
             else:
-                cmd_parts = [entry_path]
-        else:
-            # Auto-detect entry point
-            candidates = ["main.py", "app.py", "run.py", "index.py", "scraper.py",
-                         "start.py", "index.js", "main.js", "app.js"]
-            entry_path = None
-            for c in candidates:
-                p = os.path.join(repo_dir, c)
-                if os.path.exists(p):
-                    entry_path = p
-                    break
-            if not entry_path:
-                # Fallback: first .py file
-                for f in os.listdir(repo_dir):
-                    if f.endswith(".py") and not f.startswith("__"):
-                        entry_path = os.path.join(repo_dir, f)
+                set_step("install", "done", "No dependencies file found (skipped)")
+
+            # === STEP 6: RUN the code ===
+            set_step("run", "running", "Executing code...")
+            run_cmd = config["run_command"]
+            entry = config["entry_point"]
+            timeout_sec = config["timeout"]
+
+            if run_cmd:
+                cmd_parts = run_cmd.split()
+            elif entry:
+                entry_path = os.path.join(repo_dir, entry)
+                if not os.path.exists(entry_path):
+                    set_step("run", "error", f"Entry point not found: {entry}")
+                    return {"success": False, "error": f"Entry not found: {entry}"}
+                if entry.endswith(".py"):
+                    cmd_parts = [sys.executable, entry_path]
+                elif entry.endswith(".js"):
+                    cmd_parts = ["node", entry_path]
+                else:
+                    cmd_parts = [entry_path]
+            else:
+                candidates = ["main.py", "app.py", "run.py", "index.py", "scraper.py",
+                             "start.py", "index.js", "main.js", "app.js"]
+                entry_path = None
+                for c in candidates:
+                    p = os.path.join(repo_dir, c)
+                    if os.path.exists(p):
+                        entry_path = p
                         break
-            if not entry_path:
-                set_step("run", "error", "No entry point found")
-                return {"success": False, "error": "No entry point found"}
+                if not entry_path:
+                    for f in os.listdir(repo_dir):
+                        if f.endswith(".py") and not f.startswith("__"):
+                            entry_path = os.path.join(repo_dir, f)
+                            break
+                if not entry_path:
+                    set_step("run", "error", "No entry point found")
+                    return {"success": False, "error": "No entry point found"}
 
-            if entry_path.endswith(".py"):
-                cmd_parts = [sys.executable, entry_path]
-            elif entry_path.endswith(".js"):
-                cmd_parts = ["node", entry_path]
-            else:
-                cmd_parts = [entry_path]
+                if entry_path.endswith(".py"):
+                    cmd_parts = [sys.executable, entry_path]
+                elif entry_path.endswith(".js"):
+                    cmd_parts = ["node", entry_path]
+                else:
+                    cmd_parts = [entry_path]
 
-        set_step("run", "running", f"Running: {' '.join(os.path.basename(c) for c in cmd_parts)}")
+            set_step("run", "running", f"Running: {' '.join(os.path.basename(c) for c in cmd_parts)}")
 
-        try:
-            proc_result = subprocess.run(
-                cmd_parts, capture_output=True, text=True,
-                timeout=timeout_sec, cwd=repo_dir
-            )
-            exit_code = proc_result.returncode
-            stdout = proc_result.stdout
-            stderr = proc_result.stderr
-            run_status = "SUCCESS" if exit_code == 0 else "FAILED"
-        except subprocess.TimeoutExpired:
-            exit_code = -1
-            stdout = ""
-            stderr = f"TIMEOUT after {timeout_sec}s"
-            run_status = "TIMEOUT"
-        except Exception as e:
-            exit_code = -1
-            stdout = ""
-            stderr = str(e)
-            run_status = "ERROR"
+            try:
+                proc_result = subprocess.run(
+                    cmd_parts, capture_output=True, text=True,
+                    timeout=timeout_sec, cwd=repo_dir
+                )
+                exit_code = proc_result.returncode
+                stdout = proc_result.stdout
+                stderr = proc_result.stderr
+                run_status = "SUCCESS" if exit_code == 0 else "FAILED"
+            except subprocess.TimeoutExpired:
+                exit_code = -1
+                stdout = ""
+                stderr = f"TIMEOUT after {timeout_sec}s"
+                run_status = "TIMEOUT"
+            except Exception as e:
+                exit_code = -1
+                stdout = ""
+                stderr = str(e)
+                run_status = "ERROR"
 
-        set_step("run", "done" if exit_code == 0 else "error",
-                f"Exit code: {exit_code} ({run_status})")
+            set_step("run", "done" if exit_code == 0 else "error",
+                    f"Exit code: {exit_code} ({run_status})")
 
-        # === STEP 7: CAPTURE output ===
-        set_step("capture", "running", "Formatting output...")
-        output_parts = []
-        output_parts.append(f"=== Target: {target_repo} ===")
-        output_parts.append(f"=== Command: {' '.join(cmd_parts)} ===")
-        output_parts.append(f"=== Timestamp: {datetime.now().isoformat()} ===")
-        if stdout:
-            output_parts.append("\n=== STDOUT ===")
-            output_parts.append(stdout)
-        if stderr:
-            output_parts.append("\n=== STDERR ===")
-            output_parts.append(stderr)
-        output_parts.append(f"\n=== EXIT CODE: {exit_code} ===")
-        output_parts.append(f"=== STATUS: {run_status} ===")
+            # === STEP 7: CAPTURE output ===
+            set_step("capture", "running", "Formatting output...")
+            output_parts = []
+            output_parts.append(f"=== Target: {target_repo} ===")
+            output_parts.append(f"=== Command: {' '.join(cmd_parts)} ===")
+            output_parts.append(f"=== Timestamp: {datetime.now().isoformat()} ===")
+            if stdout:
+                output_parts.append("\n=== STDOUT ===")
+                output_parts.append(stdout)
+            if stderr:
+                output_parts.append("\n=== STDERR ===")
+                output_parts.append(stderr)
+            output_parts.append(f"\n=== EXIT CODE: {exit_code} ===")
+            output_parts.append(f"=== STATUS: {run_status} ===")
 
-        full_output = "\n".join(output_parts)
-        set_step("capture", "done", f"Output captured ({len(full_output)} bytes)")
+            full_output = "\n".join(output_parts)
+            set_step("capture", "done", f"Output captured ({len(full_output)} bytes)")
 
-        # === STEP 8: PUSH output to bridge ===
-        set_step("push_output", "running", "Pushing output to copilot-bridge...")
-        iteration = len(pipeline_state["history"]) + 1
+            # === STEP 8: PUSH output to bridge ===
+            set_step("push_output", "running", "Pushing output to copilot-bridge...")
+            iteration = len(pipeline_state["history"]) + 1
 
-        # Push output_iteration_X.txt (permanent record)
-        iter_filename = f"output_iteration_{iteration}.txt"
-        iter_result = push_file_to_github("copilot-bridge", iter_filename,
-                           full_output.encode(), f"[NOCOPO] Output iteration {iteration}")
-        if iter_result == "pushed":
-            if iter_filename not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
-                pipeline_state["push_info"]["bridge"]["files_pushed"].append(iter_filename)
-                pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
-            pipeline_state["push_info"]["bridge"]["total_commits"] += 1
+            # Push output_iteration_X.txt (permanent record)
+            iter_filename = f"output_iteration_{iteration}.txt"
+            iter_result = push_file_to_github("copilot-bridge", iter_filename,
+                               full_output.encode(), f"[NOCOPO] Output iteration {iteration}")
+            if iter_result == "pushed":
+                if iter_filename not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
+                    pipeline_state["push_info"]["bridge"]["files_pushed"].append(iter_filename)
+                    pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
+                pipeline_state["push_info"]["bridge"]["total_commits"] += 1
 
-        # Push output.txt (latest output)
-        out_result = push_file_to_github("copilot-bridge", "output.txt",
-                           full_output.encode(), f"[NOCOPO] Update output.txt")
-        if out_result == "pushed":
-            if "output.txt" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
-                pipeline_state["push_info"]["bridge"]["files_pushed"].append("output.txt")
-                pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
-            pipeline_state["push_info"]["bridge"]["total_commits"] += 1
+            # Push output.txt (latest output)
+            out_result = push_file_to_github("copilot-bridge", "output.txt",
+                               full_output.encode(), f"[NOCOPO] Update output.txt")
+            if out_result == "pushed":
+                if "output.txt" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
+                    pipeline_state["push_info"]["bridge"]["files_pushed"].append("output.txt")
+                    pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
+                pipeline_state["push_info"]["bridge"]["total_commits"] += 1
 
-        output_status = {
-            "state": "output_ready",
-            "pushed_by": "nocopo",
-            "target_repo": target_repo,
-            "iteration": iteration,
-            "exit_code": exit_code,
-            "timestamp": datetime.now().isoformat(),
-            "message": f"Output ready ({run_status})"
-        }
-        status_res = push_file_to_github("copilot-bridge", "status.json",
-                           json.dumps(output_status, indent=2).encode(),
-                           f"[NOCOPO] Status: output_ready")
-        if status_res == "pushed":
-            if "status.json" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
-                pipeline_state["push_info"]["bridge"]["files_pushed"].append("status.json")
-                pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
-            pipeline_state["push_info"]["bridge"]["total_commits"] += 1
+            output_status = {
+                "state": "output_ready",
+                "pushed_by": "nocopo",
+                "target_repo": target_repo,
+                "iteration": iteration,
+                "exit_code": exit_code,
+                "timestamp": datetime.now().isoformat(),
+                "message": f"Output ready ({run_status})"
+            }
+            status_res = push_file_to_github("copilot-bridge", "status.json",
+                               json.dumps(output_status, indent=2).encode(),
+                               f"[NOCOPO] Status: output_ready")
+            if status_res == "pushed":
+                if "status.json" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
+                    pipeline_state["push_info"]["bridge"]["files_pushed"].append("status.json")
+                    pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
+                pipeline_state["push_info"]["bridge"]["total_commits"] += 1
 
-        # Remove from skipped list any files that were pushed later in the pipeline
-        pushed_set = set(pipeline_state["push_info"]["bridge"]["files_pushed"])
-        pipeline_state["push_info"]["bridge"]["files_skipped"] = [
-            f for f in pipeline_state["push_info"]["bridge"]["files_skipped"]
-            if f not in pushed_set
-        ]
-        set_step("push_output", "done", "Output pushed to GitHub")
+            # Remove from skipped list any files that were pushed later in the pipeline
+            pushed_set = set(pipeline_state["push_info"]["bridge"]["files_pushed"])
+            pipeline_state["push_info"]["bridge"]["files_skipped"] = [
+                f for f in pipeline_state["push_info"]["bridge"]["files_skipped"]
+                if f not in pushed_set
+            ]
+            set_step("push_output", "done", "Output pushed to GitHub")
 
         # === STEP 9: RECEIVE output (COPO) ===
-        set_step("receive", "running", "Reading output...")
-        set_step("receive", "done", "Output received")
+        if config["mode"] != "split":
+            set_step("receive", "running", "Reading output...")
+            set_step("receive", "done", "Output received")
 
         # === STEP 10: SAVE locally ===
         set_step("save", "running", "Saving results...")
+        iteration = iteration if 'iteration' in dir() else len(pipeline_state["history"]) + 1
         saved_path = None
         if config["save_output_locally"]:
             save_dir = config["output_save_path"] or config["local_repo_path"]
