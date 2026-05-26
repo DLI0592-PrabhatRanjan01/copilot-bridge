@@ -21,7 +21,7 @@ import requests
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 
-PORT = 8765  # Different port from bridge_server (8765)
+PORT = 8766  # Different port from bridge_server (8765)
 
 # ============================================================
 # GLOBAL STATE
