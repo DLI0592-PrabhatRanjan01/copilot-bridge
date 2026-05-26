@@ -159,7 +159,7 @@ def push_multiple_files_to_github(repo_name, files, commit_message):
     base_url = github_api_base(repo_name)
 
     # 1. Get latest commit SHA for the branch
-    ref_url = f"{base_url}/git/ref/heads/{branch}"
+    ref_url = f"{base_url}/git/refs/heads/{branch}"
     resp = requests.get(ref_url, headers=headers)
     if resp.status_code != 200:
         return False
@@ -226,8 +226,6 @@ def push_multiple_files_to_github(repo_name, files, commit_message):
 def run_pipeline():
     """Execute the full COPO → NOCOPO → COPO pipeline."""
     config = pipeline_state["config"]
-    pipeline_state["running"] = True
-    reset_steps()
 
     try:
         # === STEP 1: SCAN local changes ===
@@ -333,9 +331,9 @@ def run_pipeline():
                 target_commit_msg = f"[COPO] Update {file_names}"
             success = push_multiple_files_to_github(target_repo, changed_files_target, target_commit_msg)
             if not success:
-                # Fallback: individual pushes
+                # Fallback: individual pushes with same commit message
                 for f in changed_files_target:
-                    push_file_to_github(target_repo, f["path"], f["content_bytes"], f"[COPO] Update {f['path']}")
+                    push_file_to_github(target_repo, f["path"], f["content_bytes"], target_commit_msg)
         elif len(failed) == len(files_to_push):
             set_step("push", "error", "All files failed to push")
             return {"success": False, "error": "Push failed", "failed_files": failed}
@@ -394,9 +392,9 @@ def run_pipeline():
                 bridge_commit_msg = f"[COPO] Bridge: {file_names}"
             success = push_multiple_files_to_github("copilot-bridge", changed_files_bridge, bridge_commit_msg)
             if not success:
-                # Fallback: individual pushes
+                # Fallback: individual pushes with same commit message
                 for f in changed_files_bridge:
-                    push_file_to_github("copilot-bridge", f["path"], f["content_bytes"], f"[COPO] Update {f['path']}")
+                    push_file_to_github("copilot-bridge", f["path"], f["content_bytes"], bridge_commit_msg)
             pipeline_state["push_info"]["bridge"]["total_commits"] = 1
 
         pipeline_state["push_info"]["bridge"]["total_pushed"] = b_pushed
@@ -447,6 +445,9 @@ def run_pipeline():
                 time.sleep(5)
 
             if full_output is None:
+                if not pipeline_state["running"]:
+                    set_step("receive", "error", "Pipeline stopped by user")
+                    return {"success": False, "error": "Pipeline stopped"}
                 set_step("receive", "error", f"Timeout waiting for NOCOPO ({max_wait}s)")
                 return {"success": False, "error": "NOCOPO did not respond in time"}
 
@@ -638,9 +639,9 @@ def run_pipeline():
                         pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
                 pipeline_state["push_info"]["bridge"]["total_commits"] += 1
             else:
-                # Fallback: individual pushes
+                # Fallback: individual pushes with same commit message
                 for f in output_files:
-                    push_file_to_github("copilot-bridge", f["path"], f["content_bytes"], f"[NOCOPO] {f['path']}")
+                    push_file_to_github("copilot-bridge", f["path"], f["content_bytes"], output_commit_msg)
 
             # Remove from skipped list any files that were pushed later in the pipeline
             pushed_set = set(pipeline_state["push_info"]["bridge"]["files_pushed"])
