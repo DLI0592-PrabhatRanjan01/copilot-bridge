@@ -1,10 +1,11 @@
 """
 COPO SYSTEM - System with Copilot (sites blocked, can't test code)
 This script:
-1. Pushes Python code to GitHub
-2. Monitors copilot-bridge for changes (commit-based detection)
-3. When NOCOPO pushes output, auto-detects and shows results
-4. If not satisfied, rewrites code and pushes again
+1. Watches local web-scraper directory for changes
+2. Pushes changed files to web-scraper GitHub repo
+3. NOCOPO detects changes, runs, pushes output to copilot-bridge
+4. COPO reads output from copilot-bridge and displays results
+5. Loop: make more changes, push, get output
 """
 
 import os
@@ -12,6 +13,7 @@ import sys
 import time
 import json
 import base64
+import hashlib
 import requests
 from datetime import datetime
 
@@ -19,18 +21,32 @@ from datetime import datetime
 PAT_TOKEN = os.environ.get("GITHUB_PAT", "")
 GITHUB_USER = "DLI0592-PrabhatRanjan01"
 REPO_NAME = "copilot-bridge"
+TARGET_REPO = "web-scraper"
 BRANCH = "main"
 POLL_INTERVAL = 10  # seconds
 
+# Local web-scraper directory
+LOCAL_REPO_DIR = os.environ.get("WEB_SCRAPER_DIR",
+    os.path.join(os.path.expanduser("~"), "Desktop", "web-scraper"))
+
 API_BASE = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}"
+TARGET_API_BASE = f"https://api.github.com/repos/{GITHUB_USER}/{TARGET_REPO}"
 HEADERS = {
     "Authorization": f"token {PAT_TOKEN}",
     "Accept": "application/vnd.github.v3+json",
     "Content-Type": "application/json"
 }
 
-# Track last known commit SHA
-last_known_commit = None
+# Files to track for changes
+TRACK_EXTENSIONS = {".py", ".txt", ".json", ".yml", ".yaml", ".cfg", ".toml"}
+IGNORE_FILES = {"check_bridge.py", "check_actions.py", "check_logs.py",
+                "check_workflow.py", "deploy.py", "quick_push.py",
+                "push_and_deploy.py", "check_content.py", "check_run.py",
+                "check_v4.py", "check_v6.py", "download_artifact.py",
+                "monitor_run.py", "analyze_results.py", "analyze_v3.py"}
+
+# State
+file_hashes = {}  # Track file content hashes
 
 
 def create_repo_if_not_exists():
@@ -206,76 +222,185 @@ def main():
     global last_known_commit
 
     print("=" * 60)
-    print("  COPO SYSTEM - Copilot Bridge (Auto-Detect & Push)")
+    print("  COPO SYSTEM - Auto Push & Read Output")
     print("=" * 60)
+    print(f"[COPO] Local dir: {LOCAL_REPO_DIR}")
+    print(f"[COPO] Target repo: {GITHUB_USER}/{TARGET_REPO}")
+    print(f"[COPO] Bridge repo: {GITHUB_USER}/{REPO_NAME}")
+    print(f"[COPO] Polling every {POLL_INTERVAL}s")
+    print("[COPO] Press Ctrl+C to stop\n")
 
-    create_repo_if_not_exists()
+    if not PAT_TOKEN:
+        print("[ERROR] Set GITHUB_PAT environment variable!")
+        sys.exit(1)
+
+    if not os.path.isdir(LOCAL_REPO_DIR):
+        print(f"[ERROR] Local repo not found: {LOCAL_REPO_DIR}")
+        sys.exit(1)
 
     # Initialize commit tracking
     last_known_commit = get_latest_commit()
-    print(f"[COPO] Tracking commits from: {last_known_commit[:7] if last_known_commit else 'N/A'}")
+    print(f"[COPO] Bridge commit: {last_known_commit[:7] if last_known_commit else 'N/A'}")
 
-    iteration = 1
+    # Initialize file hashes
+    scan_local_files()
+    print(f"[COPO] Tracking {len(file_hashes)} files\n")
 
-    while True:
-        print(f"\n{'─' * 40}")
-        print(f"  Iteration {iteration}")
-        print(f"{'─' * 40}")
+    iteration = 0
 
-        # Check if there's code to push from local file
-        code = read_code_from_file("code_to_push.py")
+    try:
+        while True:
+            try:
+                # 1. Check for local file changes
+                changed_files = detect_local_changes()
 
-        if code is None:
-            print("\n[COPO] No 'code_to_push.py' found!")
-            print("[COPO] Create a file named 'code_to_push.py' in this directory")
-            print("[COPO] with the Python code you want to test.")
-            print("[COPO] Waiting for file...")
+                if changed_files:
+                    iteration += 1
+                    print(f"\n{'─' * 50}")
+                    print(f"  LOCAL CHANGES DETECTED - Iteration {iteration}")
+                    print(f"{'─' * 50}")
+                    for f in changed_files:
+                        print(f"  [CHANGED] {f}")
 
-            while not os.path.exists("code_to_push.py"):
-                time.sleep(3)
+                    # Push changed files to web-scraper repo
+                    print(f"\n[COPO] Pushing {len(changed_files)} file(s) to {TARGET_REPO}...")
+                    pushed = push_changed_files(changed_files, iteration)
 
-            code = read_code_from_file("code_to_push.py")
+                    if pushed > 0:
+                        print(f"[COPO] Pushed {pushed}/{len(changed_files)} files.")
+                        print(f"[COPO] Waiting for NOCOPO to run and return output...")
 
-        print(f"\n[COPO] Code to push:\n{'─' * 30}")
-        print(code[:500] + ("..." if len(code) > 500 else ""))
-        print(f"{'─' * 30}")
+                        # Wait for NOCOPO output
+                        output = wait_for_output(timeout=180)
+                        if output:
+                            print(f"\n{'═' * 50}")
+                            print("  OUTPUT FROM NOCOPO")
+                            print(f"{'═' * 50}")
+                            print(output[:3000])
+                            if len(output) > 3000:
+                                print(f"\n  ... ({len(output)} total bytes)")
+                            print(f"{'═' * 50}")
 
-        # Push the code
-        push_code(code, iteration)
+                            # Save locally
+                            out_file = os.path.join(LOCAL_REPO_DIR, f"output_iter_{iteration}.txt")
+                            with open(out_file, "w", encoding="utf-8") as f:
+                                f.write(output)
+                            print(f"\n[COPO] Output saved: {out_file}")
+                        else:
+                            print("[COPO] Timeout waiting for output. NOCOPO may be down.")
+                    else:
+                        print("[COPO] No files pushed (all failed).")
+                else:
+                    print(f"[COPO] No local changes. ({datetime.now().strftime('%H:%M:%S')})")
 
-        # Wait for output from NOCOPO
-        output, status = wait_for_output()
+            except (requests.exceptions.ConnectionError,
+                    requests.exceptions.Timeout,
+                    requests.exceptions.RequestException) as e:
+                print(f"[COPO] Network error (will retry): {type(e).__name__}")
 
-        print(f"\n[COPO] Output from NOCOPO:\n{'═' * 30}")
-        print(output)
-        print(f"{'═' * 30}")
+            time.sleep(POLL_INTERVAL)
 
-        # Save output locally
-        save_output_locally(output, iteration)
-
-        # Ask if satisfied
-        print("\n[COPO] Are you satisfied with this output?")
-        print("  [y] Yes - mark as complete")
-        print("  [n] No  - rewrite code and push again")
-        print("  [q] Quit")
-
-        choice = input("\nChoice: ").strip().lower()
-
-        if choice == 'y':
-            mark_satisfied()
-            print("\n[COPO] Process complete! Final output saved.")
-            break
-        elif choice == 'q':
-            print("[COPO] Exiting without marking satisfied.")
-            break
-        else:
-            # Not satisfied - user should update code_to_push.py
-            print("\n[COPO] Update 'code_to_push.py' with the new code.")
-            print("[COPO] Press Enter when ready to push the updated code...")
-            input()
-            iteration += 1
+    except KeyboardInterrupt:
+        print("\n[COPO] Stopped by user.")
 
     print("\n[COPO] Session ended.")
+
+
+def scan_local_files():
+    """Build initial hash map of tracked files."""
+    for fname in os.listdir(LOCAL_REPO_DIR):
+        fpath = os.path.join(LOCAL_REPO_DIR, fname)
+        if not os.path.isfile(fpath):
+            continue
+        ext = os.path.splitext(fname)[1]
+        if ext not in TRACK_EXTENSIONS:
+            continue
+        if fname in IGNORE_FILES:
+            continue
+        file_hashes[fname] = hash_file(fpath)
+
+
+def hash_file(filepath):
+    """Get MD5 hash of file content."""
+    with open(filepath, "rb") as f:
+        return hashlib.md5(f.read()).hexdigest()
+
+
+def detect_local_changes():
+    """Detect which tracked files have changed."""
+    changed = []
+    for fname in os.listdir(LOCAL_REPO_DIR):
+        fpath = os.path.join(LOCAL_REPO_DIR, fname)
+        if not os.path.isfile(fpath):
+            continue
+        ext = os.path.splitext(fname)[1]
+        if ext not in TRACK_EXTENSIONS:
+            continue
+        if fname in IGNORE_FILES:
+            continue
+
+        current_hash = hash_file(fpath)
+        if fname not in file_hashes or file_hashes[fname] != current_hash:
+            changed.append(fname)
+            file_hashes[fname] = current_hash
+
+    return changed
+
+
+def push_changed_files(filenames, iteration):
+    """Push changed files to the target (web-scraper) repo."""
+    pushed = 0
+    for fname in filenames:
+        fpath = os.path.join(LOCAL_REPO_DIR, fname)
+        with open(fpath, "rb") as f:
+            content = base64.b64encode(f.read()).decode("utf-8")
+
+        # Get existing SHA
+        url = f"{TARGET_API_BASE}/contents/{fname}?ref={BRANCH}"
+        resp = requests.get(url, headers=HEADERS)
+        sha = resp.json().get("sha") if resp.status_code == 200 else None
+
+        data = {
+            "message": f"[COPO] Update {fname} (iteration {iteration})",
+            "content": content,
+            "branch": BRANCH
+        }
+        if sha:
+            data["sha"] = sha
+
+        resp = requests.put(f"{TARGET_API_BASE}/contents/{fname}",
+                           headers=HEADERS, json=data)
+        if resp.status_code in [200, 201]:
+            print(f"  [OK] {fname}")
+            pushed += 1
+        else:
+            print(f"  [FAIL] {fname}: {resp.status_code}")
+    return pushed
+
+
+def wait_for_output(timeout=180):
+    """Poll copilot-bridge for output from NOCOPO."""
+    global last_known_commit
+    start = time.time()
+
+    # Remember current status iteration to detect new output
+    current_status = get_status()
+    current_iter = current_status.get("iteration", 0) if current_status else 0
+
+    while time.time() - start < timeout:
+        time.sleep(POLL_INTERVAL)
+
+        status = get_status()
+        if status and status.get("state") == "output_ready" and status.get("pushed_by") == "nocopo":
+            # Check if this is new output (higher iteration)
+            if status.get("iteration", 0) > current_iter:
+                output, _ = get_file_content("output.txt")
+                return output
+
+        elapsed = int(time.time() - start)
+        print(f"  [{elapsed}s] Waiting for NOCOPO...")
+
+    return None
 
 
 if __name__ == "__main__":
