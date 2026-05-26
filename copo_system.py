@@ -2,8 +2,8 @@
 COPO SYSTEM - System with Copilot (sites blocked, can't test code)
 This script:
 1. Pushes Python code to GitHub
-2. Polls every 10 sec to check if NOCOPO pushed output
-3. Reads the output and lets user/copilot decide if satisfied
+2. Monitors copilot-bridge for changes (commit-based detection)
+3. When NOCOPO pushes output, auto-detects and shows results
 4. If not satisfied, rewrites code and pushes again
 """
 
@@ -12,7 +12,6 @@ import sys
 import time
 import json
 import base64
-import os
 import requests
 from datetime import datetime
 
@@ -29,6 +28,9 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json",
     "Content-Type": "application/json"
 }
+
+# Track last known commit SHA
+last_known_commit = None
 
 
 def create_repo_if_not_exists():
@@ -120,18 +122,56 @@ def push_code(code_content, iteration=1):
 
 
 def wait_for_output():
-    """Poll every 10 seconds until NOCOPO pushes output."""
-    print(f"[COPO] Polling every {POLL_INTERVAL}s for output from NOCOPO...")
+    """Poll for output - detects changes via commit SHA monitoring."""
+    global last_known_commit
+    print(f"[COPO] Watching for changes (commit-based detection)...")
 
     while True:
+        # Check for new commits in bridge repo
+        current_commit = get_latest_commit()
+        if current_commit and current_commit != last_known_commit:
+            last_known_commit = current_commit
+            info = get_commit_info(current_commit)
+            if info and "[NOCOPO]" in info["message"]:
+                print(f"[COPO] Change detected! {info['message']}")
+                # NOCOPO pushed something - check if output is ready
+                status = get_status()
+                if status and status.get("state") == "output_ready":
+                    output, _ = get_file_content("output.txt")
+                    return output, status
+
+        # Fallback: also check status directly
         status = get_status()
         if status and status.get("state") == "output_ready" and status.get("pushed_by") == "nocopo":
-            print("[COPO] Output received from NOCOPO!")
             output, _ = get_file_content("output.txt")
             return output, status
 
         time.sleep(POLL_INTERVAL)
-        print(f"[COPO] Still waiting... ({datetime.now().strftime('%H:%M:%S')})")
+        print(f"[COPO] Watching... ({datetime.now().strftime('%H:%M:%S')})")
+
+
+def get_latest_commit():
+    """Get the latest commit SHA for the bridge repo."""
+    url = f"{API_BASE}/commits/{BRANCH}"
+    resp = requests.get(url, headers=HEADERS)
+    if resp.status_code == 200:
+        return resp.json()["sha"]
+    return None
+
+
+def get_commit_info(sha):
+    """Get commit details."""
+    url = f"{API_BASE}/commits/{sha}"
+    resp = requests.get(url, headers=HEADERS)
+    if resp.status_code == 200:
+        data = resp.json()
+        return {
+            "sha": sha[:7],
+            "message": data["commit"]["message"].split("\n")[0],
+            "author": data["commit"]["author"]["name"],
+            "files": [f["filename"] for f in data.get("files", [])]
+        }
+    return None
 
 
 def read_code_from_file(filepath="code_to_push.py"):
@@ -163,11 +203,17 @@ def mark_satisfied():
 
 
 def main():
+    global last_known_commit
+
     print("=" * 60)
-    print("  COPO SYSTEM - Copilot Bridge (Code Writer)")
+    print("  COPO SYSTEM - Copilot Bridge (Auto-Detect & Push)")
     print("=" * 60)
 
     create_repo_if_not_exists()
+
+    # Initialize commit tracking
+    last_known_commit = get_latest_commit()
+    print(f"[COPO] Tracking commits from: {last_known_commit[:7] if last_known_commit else 'N/A'}")
 
     iteration = 1
 
