@@ -46,7 +46,7 @@ pipeline_state = {
     "history": [],              # Past run results
     "push_info": None,          # Info about what was scanned/pushed
 }
-# MEOW
+
 # Step definitions for the pipeline
 PIPELINE_STEPS = [
     {"id": "scan", "label": "Scanning Local Changes", "system": "copo"},
