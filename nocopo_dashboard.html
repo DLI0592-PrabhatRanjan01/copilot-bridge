@@ -115,7 +115,7 @@
                     </div>
                     <div class="config-group">
                         <label>NOCOPO Server URL</label>
-                        <input type="text" id="cfgServerUrl" value="http://localhost:8766">
+                        <input type="text" id="cfgServerUrl" value="http://localhost:8765">
                         <div class="hint">Where nocopo_server.py is running</div>
                     </div>
                     <div class="config-group">
@@ -205,7 +205,7 @@
     // ============================================================
     // STATE & CONFIG
     // ============================================================
-    let serverUrl = localStorage.getItem('nocopo_server_url') || 'http://localhost:8766';
+    let serverUrl = localStorage.getItem('nocopo_server_url') || 'http://localhost:8765';
     let pollTimer = null;
 
     // Load saved config
