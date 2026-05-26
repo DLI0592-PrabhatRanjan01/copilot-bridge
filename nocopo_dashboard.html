@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOCOPO Dashboard - Copilot Bridge</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0d1117; color: #c9d1d9;
+            min-height: 100vh; padding: 20px;
+        }
+        .header { text-align: center; padding: 20px 0; margin-bottom: 20px; border-bottom: 1px solid #30363d; }
+        .header h1 { color: #a371f7; font-size: 24px; margin-bottom: 5px; }
+        .header p { color: #8b949e; font-size: 14px; }
+        .header .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: 8px; }
+        .badge.monitoring { background: #238636; color: #fff; }
+        .badge.idle { background: #30363d; color: #8b949e; }
+
+        .layout { display: grid; grid-template-columns: 320px 1fr; gap: 20px; max-width: 1400px; margin: 0 auto; }
+        @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+        .panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+        .panel-header { padding: 12px 16px; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 10px; }
+        .panel-header h2 { font-size: 15px; color: #f0f6fc; flex: 1; }
+        .panel-body { padding: 16px; }
+
+        .config-group { margin-bottom: 14px; }
+        .config-group label { display: block; font-size: 12px; color: #8b949e; margin-bottom: 4px; font-weight: 600; }
+        .config-group input {
+            width: 100%; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
+            padding: 8px 10px; border-radius: 6px; font-size: 13px;
+        }
+        .config-group input:focus { border-color: #a371f7; outline: none; }
+        .config-group .hint { font-size: 11px; color: #6e7681; margin-top: 2px; }
+
+        button {
+            background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
+            padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+            transition: all 0.2s; width: 100%; margin-bottom: 8px;
+        }
+        button:hover { background: #30363d; border-color: #a371f7; }
+        button.primary { background: #8957e5; border-color: #a371f7; color: #fff; font-size: 15px; padding: 12px; }
+        button.primary:hover { background: #a371f7; }
+        button.start { background: #238636; border-color: #2ea043; color: #fff; }
+        button.start:hover { background: #2ea043; }
+        button.stop { background: #da3633; border-color: #f85149; color: #fff; }
+        button.stop:hover { background: #f85149; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .pipeline-steps { display: flex; flex-direction: column; gap: 4px; }
+        .step-row {
+            display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+            border-radius: 6px; border: 1px solid #21262d; transition: all 0.3s;
+        }
+        .step-row.running { border-color: #a371f7; background: rgba(163,113,247,0.08); }
+        .step-row.done { border-color: #238636; background: rgba(35,134,54,0.08); }
+        .step-row.error { border-color: #da3633; background: rgba(218,54,51,0.08); }
+        .step-icon { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        .step-icon.pending { background: #21262d; color: #484f58; }
+        .step-icon.running { background: #a371f7; color: #fff; animation: pulse 1.5s infinite; }
+        .step-icon.done { background: #238636; color: #fff; }
+        .step-icon.error { background: #da3633; color: #fff; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .step-label { flex: 1; font-size: 13px; }
+        .step-msg { font-size: 11px; color: #8b949e; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .poll-info { padding: 12px; background: #0d1117; border-radius: 6px; margin-bottom: 12px; font-size: 12px; }
+        .poll-info dt { color: #8b949e; display: inline; }
+        .poll-info dd { color: #c9d1d9; display: inline; margin-right: 12px; }
+
+        .output-box {
+            background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+            padding: 12px; font-family: monospace; font-size: 12px;
+            max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+            color: #7ee787;
+        }
+
+        .history-item {
+            display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+            border-bottom: 1px solid #21262d; font-size: 12px;
+        }
+        .history-item:last-child { border-bottom: none; }
+        .history-badge { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+        .history-badge.SUCCESS { background: #238636; color: #fff; }
+        .history-badge.FAILED { background: #da3633; color: #fff; }
+        .history-badge.TIMEOUT { background: #d29922; color: #fff; }
+        .history-badge.ERROR { background: #f85149; color: #fff; }
+
+        .status-bar { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: #0d1117; border-radius: 6px; margin-bottom: 12px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .status-dot.active { background: #3fb950; animation: pulse 2s infinite; }
+        .status-dot.idle { background: #484f58; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🖥️ NOCOPO Dashboard</h1>
+        <p>Remote Execution System - Copilot Bridge
+            <span id="monitorBadge" class="badge idle">IDLE</span>
+        </p>
+    </div>
+
+    <div class="layout">
+        <!-- LEFT: Config & Controls -->
+        <div>
+            <div class="panel">
+                <div class="panel-header"><h2>⚙️ NOCOPO Config</h2></div>
+                <div class="panel-body">
+                    <div class="config-group">
+                        <label>GitHub PAT Token</label>
+                        <input type="password" id="cfgPat" placeholder="ghp_...">
+                        <div class="hint">Personal Access Token (stored in browser localStorage)</div>
+                    </div>
+                    <div class="config-group">
+                        <label>NOCOPO Server URL</label>
+                        <input type="text" id="cfgServerUrl" value="http://localhost:8766">
+                        <div class="hint">Where nocopo_server.py is running</div>
+                    </div>
+                    <div class="config-group">
+                        <label>Target Repo (to run)</label>
+                        <input type="text" id="cfgTargetRepo" value="web-scraper">
+                    </div>
+                    <div class="config-group">
+                        <label>GitHub User</label>
+                        <input type="text" id="cfgGithubUser" value="DLI0592-PrabhatRanjan01">
+                    </div>
+                    <div class="config-group">
+                        <label>Entry Point (optional)</label>
+                        <input type="text" id="cfgEntryPoint" placeholder="main.py">
+                    </div>
+                    <div class="config-group">
+                        <label>Run Command (optional)</label>
+                        <input type="text" id="cfgRunCommand" placeholder="python main.py --arg">
+                    </div>
+                    <div class="config-group">
+                        <label>Poll Interval (seconds)</label>
+                        <input type="number" id="cfgPollInterval" value="10" min="5">
+                    </div>
+                    <div class="config-group">
+                        <label>Timeout (seconds)</label>
+                        <input type="number" id="cfgTimeout" value="120" min="10">
+                    </div>
+                    <button onclick="saveConfig()">💾 Save Config</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header"><h2>🎮 Controls</h2></div>
+                <div class="panel-body">
+                    <button class="start" id="btnStartMonitor" onclick="startMonitoring()">▶ Start Auto-Monitoring</button>
+                    <button class="stop" id="btnStopMonitor" onclick="stopMonitoring()" style="display:none">⏹ Stop Monitoring</button>
+                    <button class="primary" id="btnTrigger" onclick="manualTrigger()">⚡ Manual Run</button>
+                    <button onclick="pollOnce()">🔍 Poll Once (Check Changes)</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header"><h2>📜 Run History</h2></div>
+                <div class="panel-body" id="historyPanel" style="max-height: 250px; overflow-y: auto;">
+                    <div style="color:#8b949e; font-size:12px">No runs yet</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Pipeline & Output -->
+        <div>
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>📡 Poll Status</h2>
+                    <span id="pollStatusText" style="font-size:11px;color:#8b949e">Not started</span>
+                </div>
+                <div class="panel-body">
+                    <div class="poll-info" id="pollInfo">
+                        <dt>Checks:</dt><dd id="pollChecks">0</dd>
+                        <dt>Triggers:</dt><dd id="pollTriggers">0</dd>
+                        <dt>Last Check:</dt><dd id="pollLastCheck">-</dd>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>🔄 Pipeline Steps</h2>
+                    <span id="pipelineStatus" style="font-size:11px;"></span>
+                </div>
+                <div class="panel-body">
+                    <div class="pipeline-steps" id="stepsContainer">
+                        <!-- Steps rendered dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header"><h2>📤 Last Output</h2></div>
+                <div class="panel-body">
+                    <div class="output-box" id="outputBox">Waiting for first run...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ============================================================
+    // STATE & CONFIG
+    // ============================================================
+    let serverUrl = localStorage.getItem('nocopo_server_url') || 'http://localhost:8766';
+    let pollTimer = null;
+
+    // Load saved config
+    window.addEventListener('load', () => {
+        document.getElementById('cfgServerUrl').value = serverUrl;
+        document.getElementById('cfgPat').value = localStorage.getItem('nocopo_pat') || '';
+        document.getElementById('cfgTargetRepo').value = localStorage.getItem('nocopo_target') || 'web-scraper';
+        document.getElementById('cfgGithubUser').value = localStorage.getItem('nocopo_user') || 'DLI0592-PrabhatRanjan01';
+        document.getElementById('cfgEntryPoint').value = localStorage.getItem('nocopo_entry') || '';
+        document.getElementById('cfgRunCommand').value = localStorage.getItem('nocopo_runcmd') || '';
+        document.getElementById('cfgPollInterval').value = localStorage.getItem('nocopo_poll') || '10';
+        document.getElementById('cfgTimeout').value = localStorage.getItem('nocopo_timeout') || '120';
+        startPollingUI();
+    });
+
+    // ============================================================
+    // API CALLS
+    // ============================================================
+    async function apiCall(method, path, body) {
+        try {
+            const opts = { method, headers: { 'Content-Type': 'application/json' } };
+            if (body) opts.body = JSON.stringify(body);
+            const resp = await fetch(serverUrl + path, opts);
+            return await resp.json();
+        } catch (e) {
+            console.error('API error:', e);
+            return null;
+        }
+    }
+
+    async function saveConfig() {
+        serverUrl = document.getElementById('cfgServerUrl').value;
+        localStorage.setItem('nocopo_server_url', serverUrl);
+        localStorage.setItem('nocopo_pat', document.getElementById('cfgPat').value);
+        localStorage.setItem('nocopo_target', document.getElementById('cfgTargetRepo').value);
+        localStorage.setItem('nocopo_user', document.getElementById('cfgGithubUser').value);
+        localStorage.setItem('nocopo_entry', document.getElementById('cfgEntryPoint').value);
+        localStorage.setItem('nocopo_runcmd', document.getElementById('cfgRunCommand').value);
+        localStorage.setItem('nocopo_poll', document.getElementById('cfgPollInterval').value);
+        localStorage.setItem('nocopo_timeout', document.getElementById('cfgTimeout').value);
+
+        const config = {
+            pat_token: document.getElementById('cfgPat').value,
+            target_repo: document.getElementById('cfgTargetRepo').value,
+            github_user: document.getElementById('cfgGithubUser').value,
+            entry_point: document.getElementById('cfgEntryPoint').value,
+            run_command: document.getElementById('cfgRunCommand').value,
+            poll_interval: parseInt(document.getElementById('cfgPollInterval').value),
+            timeout: parseInt(document.getElementById('cfgTimeout').value),
+        };
+        const res = await apiCall('POST', '/config', config);
+        if (res) alert('Config saved!');
+    }
+
+    async function startMonitoring() {
+        const res = await apiCall('POST', '/start-monitoring');
+        if (res) updateMonitorUI(true);
+    }
+
+    async function stopMonitoring() {
+        const res = await apiCall('POST', '/stop-monitoring');
+        if (res) updateMonitorUI(false);
+    }
+
+    async function manualTrigger() {
+        const res = await apiCall('POST', '/trigger', { reason: 'Manual trigger from NOCOPO dashboard' });
+        if (res && res.error) alert(res.error);
+    }
+
+    async function pollOnce() {
+        const res = await apiCall('POST', '/poll-once');
+        if (res) {
+            if (res.reason) {
+                document.getElementById('pollStatusText').textContent = `Triggered: ${res.reason}`;
+            } else {
+                document.getElementById('pollStatusText').textContent = res.message || 'No changes';
+            }
+        }
+    }
+
+    // ============================================================
+    // UI POLLING (refresh dashboard state)
+    // ============================================================
+    function startPollingUI() {
+        fetchStatus();
+        pollTimer = setInterval(fetchStatus, 2000);
+    }
+
+    async function fetchStatus() {
+        const data = await apiCall('GET', '/status');
+        if (!data) {
+            document.getElementById('pollStatusText').textContent = '❌ Cannot reach NOCOPO server';
+            return;
+        }
+        renderSteps(data.steps || []);
+        renderPollStatus(data.poll_status);
+        renderHistory(data.history || []);
+        updateMonitorUI(data.monitoring);
+
+        if (data.last_result && data.last_result.output) {
+            document.getElementById('outputBox').textContent = data.last_result.output;
+        }
+
+        // Pipeline status label
+        const ps = document.getElementById('pipelineStatus');
+        if (data.running) {
+            ps.textContent = '⏳ Running...';
+            ps.style.color = '#a371f7';
+        } else if (data.last_result) {
+            ps.textContent = `✅ ${data.last_result.run_status} (iter ${data.last_result.iteration})`;
+            ps.style.color = data.last_result.run_status === 'SUCCESS' ? '#3fb950' : '#f85149';
+        } else {
+            ps.textContent = 'Idle';
+            ps.style.color = '#8b949e';
+        }
+    }
+
+    function renderSteps(steps) {
+        const container = document.getElementById('stepsContainer');
+        if (!steps.length) {
+            container.innerHTML = '<div style="color:#8b949e;font-size:12px;padding:8px">Waiting for pipeline trigger...</div>';
+            return;
+        }
+        let html = '';
+        for (const s of steps) {
+            const icons = { pending: '○', running: '◉', done: '✔', error: '✘' };
+            html += `<div class="step-row ${s.status}">
+                <div class="step-icon ${s.status}">${icons[s.status] || '○'}</div>
+                <div class="step-label">${s.label}</div>
+                <div class="step-msg">${s.message || ''}</div>
+            </div>`;
+        }
+        container.innerHTML = html;
+    }
+
+    function renderPollStatus(poll) {
+        if (!poll) return;
+        document.getElementById('pollChecks').textContent = poll.checks_count || 0;
+        document.getElementById('pollTriggers').textContent = poll.triggers_count || 0;
+        document.getElementById('pollLastCheck').textContent = poll.last_check
+            ? new Date(poll.last_check).toLocaleTimeString() : '-';
+    }
+
+    function renderHistory(history) {
+        const el = document.getElementById('historyPanel');
+        if (!history.length) return;
+        let html = '';
+        for (const h of history.slice().reverse()) {
+            html += `<div class="history-item">
+                <span class="history-badge ${h.run_status}">${h.run_status}</span>
+                <span style="flex:1">${h.target_repo} #${h.iteration}</span>
+                <span style="color:#8b949e;font-size:11px">${new Date(h.timestamp).toLocaleTimeString()}</span>
+            </div>`;
+        }
+        el.innerHTML = html;
+    }
+
+    function updateMonitorUI(monitoring) {
+        const badge = document.getElementById('monitorBadge');
+        const btnStart = document.getElementById('btnStartMonitor');
+        const btnStop = document.getElementById('btnStopMonitor');
+        if (monitoring) {
+            badge.textContent = 'MONITORING';
+            badge.className = 'badge monitoring';
+            btnStart.style.display = 'none';
+            btnStop.style.display = 'block';
+        } else {
+            badge.textContent = 'IDLE';
+            badge.className = 'badge idle';
+            btnStart.style.display = 'block';
+            btnStop.style.display = 'none';
+        }
+    }
+    </script>
+</body>
+</html>
