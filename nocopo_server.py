@@ -41,6 +41,7 @@ nocopo_state = {
         "timeout": 120,
         "entry_point": "",
         "run_command": "",
+        "commit_message": "",
     },
     "last_result": None,
     "history": [],
@@ -126,6 +127,77 @@ def push_file(repo_name, filepath, content, message):
     url = f"{api_base(repo_name)}/contents/{filepath}"
     resp = requests.put(url, headers=get_headers(), json=data)
     return resp.status_code in [200, 201]
+
+
+def push_multiple_files(repo_name, files, commit_message):
+    """Push multiple files in a single commit using Git Data API.
+    files: list of {"path": "filename", "content": "string content"}
+    Returns True on success.
+    """
+    headers = get_headers()
+    branch = nocopo_state["config"]["branch"]
+    base_url = api_base(repo_name)
+
+    # 1. Get latest commit SHA for the branch
+    ref_url = f"{base_url}/git/ref/heads/{branch}"
+    resp = requests.get(ref_url, headers=headers)
+    if resp.status_code != 200:
+        return False
+    latest_commit_sha = resp.json()["object"]["sha"]
+
+    # 2. Get the tree SHA from that commit
+    commit_url = f"{base_url}/git/commits/{latest_commit_sha}"
+    resp = requests.get(commit_url, headers=headers)
+    if resp.status_code != 200:
+        return False
+    base_tree_sha = resp.json()["tree"]["sha"]
+
+    # 3. Create blobs for each file
+    tree_items = []
+    for file_info in files:
+        blob_url = f"{base_url}/git/blobs"
+        blob_data = {
+            "content": file_info["content"],
+            "encoding": "utf-8"
+        }
+        resp = requests.post(blob_url, headers=headers, json=blob_data)
+        if resp.status_code != 201:
+            return False
+        blob_sha = resp.json()["sha"]
+        tree_items.append({
+            "path": file_info["path"],
+            "mode": "100644",
+            "type": "blob",
+            "sha": blob_sha
+        })
+
+    # 4. Create new tree
+    tree_url = f"{base_url}/git/trees"
+    tree_data = {
+        "base_tree": base_tree_sha,
+        "tree": tree_items
+    }
+    resp = requests.post(tree_url, headers=headers, json=tree_data)
+    if resp.status_code != 201:
+        return False
+    new_tree_sha = resp.json()["sha"]
+
+    # 5. Create commit
+    commit_create_url = f"{base_url}/git/commits"
+    commit_data = {
+        "message": commit_message,
+        "tree": new_tree_sha,
+        "parents": [latest_commit_sha]
+    }
+    resp = requests.post(commit_create_url, headers=headers, json=commit_data)
+    if resp.status_code != 201:
+        return False
+    new_commit_sha = resp.json()["sha"]
+
+    # 6. Update branch reference
+    update_data = {"sha": new_commit_sha, "force": False}
+    resp = requests.patch(ref_url, headers=headers, json=update_data)
+    return resp.status_code == 200
 
 
 def get_latest_commit(repo_name):
@@ -340,15 +412,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         bridge_repo = config["bridge_repo"]
         iteration = (nocopo_state["last_result"]["iteration"] + 1) if nocopo_state["last_result"] else 1
 
-        # Push output_iteration_X.txt
-        push_file(bridge_repo, f"output_iteration_{iteration}.txt",
-                  full_output, f"[NOCOPO] Output iteration {iteration}")
-
-        # Push output.txt (latest)
-        push_file(bridge_repo, "output.txt",
-                  full_output, f"[NOCOPO] Update output.txt")
-
-        # Push status.json
+        # Build files list for single commit
         output_status = {
             "state": "output_ready",
             "pushed_by": "nocopo",
@@ -358,11 +422,28 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             "timestamp": datetime.now().isoformat(),
             "message": f"Output ready ({run_status})"
         }
-        push_file(bridge_repo, "status.json",
-                  json.dumps(output_status, indent=2),
-                  f"[NOCOPO] Status: output_ready")
 
-        set_step("push_output", "done", f"Pushed output (iteration {iteration})")
+        files_to_push = [
+            {"path": f"output_iteration_{iteration}.txt", "content": full_output},
+            {"path": "output.txt", "content": full_output},
+            {"path": "status.json", "content": json.dumps(output_status, indent=2)},
+        ]
+
+        # Build commit message: use UI message if set, otherwise auto-generate
+        custom_msg = config.get("commit_message", "").strip()
+        if custom_msg:
+            commit_msg = f"[NOCOPO] {custom_msg}"
+        else:
+            file_names = ", ".join(f["path"] for f in files_to_push)
+            commit_msg = f"[NOCOPO] Output iteration {iteration} ({run_status}) - {file_names}"
+
+        # Single commit for all files
+        success = push_multiple_files(bridge_repo, files_to_push, commit_msg)
+        if not success:
+            set_step("push_output", "error", "Failed to push output")
+            return {"success": False, "error": "Push output failed"}
+
+        set_step("push_output", "done", f"Pushed {len(files_to_push)} files in 1 commit (iter {iteration})")
 
         # DONE
         set_step("done", "done", "Pipeline complete!")
