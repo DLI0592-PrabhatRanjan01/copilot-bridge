@@ -218,6 +218,7 @@ def run_pipeline():
                 "files_failed": [],
                 "total_found": len(bridge_files),
                 "total_pushed": 0,
+                "total_commits": 0,
             }
         }
 
@@ -270,6 +271,7 @@ def run_pipeline():
             if result == "pushed":
                 b_pushed += 1
                 pipeline_state["push_info"]["bridge"]["files_pushed"].append(rel_path)
+                pipeline_state["push_info"]["bridge"]["total_commits"] += 1
             elif result == "skipped":
                 b_skipped += 1
                 pipeline_state["push_info"]["bridge"]["files_skipped"].append(rel_path)
@@ -293,9 +295,11 @@ def run_pipeline():
         }
         status_result = push_file_to_github("copilot-bridge", "status.json",
                            json.dumps(bridge_status, indent=2).encode(), "[COPO] Code ready")
-        if status_result == "pushed" and "status.json" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
-            pipeline_state["push_info"]["bridge"]["files_pushed"].append("status.json")
-            pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
+        if status_result == "pushed":
+            if "status.json" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
+                pipeline_state["push_info"]["bridge"]["files_pushed"].append("status.json")
+                pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
+            pipeline_state["push_info"]["bridge"]["total_commits"] += 1
 
         # === STEP 3: DETECT (NOCOPO side) ===
         set_step("detect", "running", "Waiting for NOCOPO detection...")
@@ -451,11 +455,25 @@ def run_pipeline():
         # === STEP 8: PUSH output to bridge ===
         set_step("push_output", "running", "Pushing output to copilot-bridge...")
         iteration = len(pipeline_state["history"]) + 1
-        out_result = push_file_to_github("copilot-bridge", "output.txt",
+
+        # Push output_iteration_X.txt (permanent record)
+        iter_filename = f"output_iteration_{iteration}.txt"
+        iter_result = push_file_to_github("copilot-bridge", iter_filename,
                            full_output.encode(), f"[NOCOPO] Output iteration {iteration}")
-        if out_result == "pushed" and "output.txt" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
-            pipeline_state["push_info"]["bridge"]["files_pushed"].append("output.txt")
-            pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
+        if iter_result == "pushed":
+            if iter_filename not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
+                pipeline_state["push_info"]["bridge"]["files_pushed"].append(iter_filename)
+                pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
+            pipeline_state["push_info"]["bridge"]["total_commits"] += 1
+
+        # Push output.txt (latest output)
+        out_result = push_file_to_github("copilot-bridge", "output.txt",
+                           full_output.encode(), f"[NOCOPO] Update output.txt")
+        if out_result == "pushed":
+            if "output.txt" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
+                pipeline_state["push_info"]["bridge"]["files_pushed"].append("output.txt")
+                pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
+            pipeline_state["push_info"]["bridge"]["total_commits"] += 1
 
         output_status = {
             "state": "output_ready",
@@ -469,9 +487,18 @@ def run_pipeline():
         status_res = push_file_to_github("copilot-bridge", "status.json",
                            json.dumps(output_status, indent=2).encode(),
                            f"[NOCOPO] Status: output_ready")
-        if status_res == "pushed" and "status.json" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
-            pipeline_state["push_info"]["bridge"]["files_pushed"].append("status.json")
-            pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
+        if status_res == "pushed":
+            if "status.json" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
+                pipeline_state["push_info"]["bridge"]["files_pushed"].append("status.json")
+                pipeline_state["push_info"]["bridge"]["total_pushed"] += 1
+            pipeline_state["push_info"]["bridge"]["total_commits"] += 1
+
+        # Remove from skipped list any files that were pushed later in the pipeline
+        pushed_set = set(pipeline_state["push_info"]["bridge"]["files_pushed"])
+        pipeline_state["push_info"]["bridge"]["files_skipped"] = [
+            f for f in pipeline_state["push_info"]["bridge"]["files_skipped"]
+            if f not in pushed_set
+        ]
         set_step("push_output", "done", "Output pushed to GitHub")
 
         # === STEP 9: RECEIVE output (COPO) ===
