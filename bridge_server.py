@@ -262,6 +262,14 @@ def git_get_status(cwd):
 
 def git_pull_latest(cwd, branch="main"):
     """Pull latest changes from remote. Stashes local changes if needed."""
+    # Clean up any stale rebase state first
+    rebase_merge_dir = os.path.join(cwd, ".git", "rebase-merge")
+    if os.path.isdir(rebase_merge_dir):
+        git_run(["rebase", "--abort"], cwd)
+        import shutil
+        if os.path.isdir(rebase_merge_dir):
+            shutil.rmtree(rebase_merge_dir)
+
     # Check if there are uncommitted changes
     ok, stdout, _ = git_run(["status", "--porcelain"], cwd)
     has_changes = bool(stdout.strip())
@@ -269,7 +277,11 @@ def git_pull_latest(cwd, branch="main"):
     if has_changes:
         git_run(["stash"], cwd)
 
-    git_run(["pull", "origin", branch, "--rebase"], cwd)
+    ok, _, err = git_run(["pull", "origin", branch, "--rebase"], cwd)
+    if not ok:
+        # Abort failed rebase and just reset to origin
+        git_run(["rebase", "--abort"], cwd)
+        git_run(["reset", "--hard", f"origin/{branch}"], cwd)
 
     if has_changes:
         git_run(["stash", "pop"], cwd)
@@ -298,11 +310,28 @@ def git_add_commit_push(cwd, commit_message, branch="main"):
             return True, [], ""
         return False, [], f"git commit failed: {err}"
 
+    # Clean up any stale rebase state before pulling
+    rebase_merge_dir = os.path.join(cwd, ".git", "rebase-merge")
+    rebase_apply_dir = os.path.join(cwd, ".git", "rebase-apply")
+    if os.path.isdir(rebase_merge_dir):
+        git_run(["rebase", "--abort"], cwd)
+        import shutil
+        if os.path.isdir(rebase_merge_dir):
+            shutil.rmtree(rebase_merge_dir)
+    if os.path.isdir(rebase_apply_dir):
+        git_run(["rebase", "--abort"], cwd)
+        import shutil
+        if os.path.isdir(rebase_apply_dir):
+            shutil.rmtree(rebase_apply_dir)
+
     # Pull --rebase BEFORE pushing (to get remote changes under our commit)
     ok, _, pull_err = git_run(["pull", "origin", branch, "--rebase"], cwd)
     if not ok:
         # If rebase fails due to conflicts, abort and force push
         git_run(["rebase", "--abort"], cwd)
+        if os.path.isdir(rebase_merge_dir):
+            import shutil
+            shutil.rmtree(rebase_merge_dir)
         print(f"[COPO] Pull rebase failed, force pushing: {pull_err}")
         ok, _, err = git_run(["push", "origin", branch, "--force-with-lease"], cwd)
         if not ok:
