@@ -57,9 +57,11 @@
         .step-row.selected { outline: 2px solid #58a6ff; outline-offset: -2px; }
         .step-row.pending { opacity: 0.5; }
         .step-row.running { border-color: #58a6ff; background: #161b2280; animation: stepPulse 1.5s infinite; }
+        .step-row.waiting { border-color: #d29922; background: #d2992210; animation: waitPulse 2s infinite; }
         .step-row.done { border-color: #3fb950; background: #3fb95010; }
         .step-row.error { border-color: #f85149; background: #f8514910; }
         @keyframes stepPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(88,166,255,0.3); } 50% { box-shadow: 0 0 12px 2px rgba(88,166,255,0.2); } }
+        @keyframes waitPulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
 
         .step-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
         .step-info { flex: 1; }
@@ -456,6 +458,7 @@ function renderSteps(steps, currentStep, running) {
         const step = steps[i];
         const icon = step.status === 'done' ? '✅' :
                      step.status === 'running' ? '⏳' :
+                     step.status === 'waiting' ? '🟡' :
                      step.status === 'error' ? '❌' : '⬜';
         const cls = step.status || 'pending';
         html += `
@@ -482,7 +485,7 @@ function showStepOutput(index) {
 
     // Build output text for this step
     let output = `── Step: ${step.label} ──\n`;
-    output += `Status: ${step.status === 'done' ? '✅ Completed' : step.status === 'error' ? '❌ Failed' : step.status === 'running' ? '⏳ Running...' : '⬜ Pending'}\n`;
+    output += `Status: ${step.status === 'done' ? '✅ Completed' : step.status === 'error' ? '❌ Failed' : step.status === 'running' ? '⏳ Running...' : step.status === 'waiting' ? '🟡 Waiting for NOCOPO...' : '⬜ Pending'}\n`;
     output += `System: ${step.system.toUpperCase()}\n`;
     if (step.message) output += `Message: ${step.message}\n`;
     output += `─────────────────────────────\n`;
@@ -535,11 +538,9 @@ function renderPushInfo(info) {
     if (!info) return;
     const box = document.getElementById('pushInfoBox');
     const status = document.getElementById('pushInfoStatus');
-    const skipped = info.files_skipped ? info.files_skipped.length : 0;
-    const bridgeCommits = info.bridge && info.bridge.total_commits ? info.bridge.total_commits : (info.bridge ? info.bridge.total_pushed : 0);
-    const bridgePushed = info.bridge ? info.bridge.total_pushed : 0;
-    const bridgeSkipped = info.bridge && info.bridge.files_skipped ? info.bridge.files_skipped.length : 0;
-    status.textContent = `Target: ${info.total_pushed} changed, ${skipped} skip | Bridge: ${bridgeCommits} commits (${bridgePushed} files), ${bridgeSkipped} skip`;
+    const totalInRepo = info.total_files_in_repo || '?';
+    const bridgeTotalInRepo = info.bridge && info.bridge.total_files_in_repo ? info.bridge.total_files_in_repo : '?';
+    status.textContent = `Target: ${info.total_found} changes of ${totalInRepo} files | Bridge: ${info.bridge ? info.bridge.total_found : 0} changes of ${bridgeTotalInRepo} files`;
     status.style.color = info.files_failed && info.files_failed.length ? '#d29922' : '#3fb950';
 
     let html = '';
@@ -549,21 +550,69 @@ function renderPushInfo(info) {
     html += `<span style="color:#8b949e;font-size:11px;margin-left:8px">${info.source_dir}</span></div>`;
     html += '<dl class="push-info-meta">';
     html += `<dt>Branch</dt><dd>${info.branch}</dd>`;
-    html += `<dt>Files</dt><dd>${info.total_pushed} pushed, ${skipped} unchanged${info.files_failed.length ? `, ${info.files_failed.length} failed` : ''} (${info.total_found} total)</dd>`;
-    html += '</dl>';
-    html += '<div class="push-files-list">';
-    for (const f of info.files_pushed) {
-        html += `<div class="push-file-item ok"><span class="file-icon">✔</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#3fb950">changed</span></div>`;
+    html += `<dt>Total in Repo</dt><dd>${totalInRepo} tracked files</dd>`;
+
+    // Show git status breakdown
+    if (info.git_status && info.git_status.summary) {
+        const s = info.git_status.summary;
+        html += `<dt>Git Status</dt><dd>`;
+        html += `<span style="color:#3fb950">Staged: ${s.staged_count}</span> | `;
+        html += `<span style="color:#d29922">Modified: ${s.modified_count}</span> | `;
+        html += `<span style="color:#58a6ff">Untracked: ${s.untracked_count}</span> | `;
+        html += `<span style="color:#f85149">Deleted: ${s.deleted_count}</span>`;
+        html += `</dd>`;
     }
-    if (info.files_skipped) {
-        for (const f of info.files_skipped) {
-            html += `<div class="push-file-item"><span class="file-icon">─</span><span style="color:#8b949e">${f}</span><span style="margin-left:auto;font-size:10px;color:#8b949e">unchanged</span></div>`;
+    html += `<dt>To Process</dt><dd>${info.total_found} files → add, commit, push</dd>`;
+    html += `<dt>Pushed</dt><dd>${info.total_pushed} files committed &amp; pushed</dd>`;
+    html += '</dl>';
+
+    // File list with status categories
+    html += '<div class="push-files-list">';
+    if (info.git_status) {
+        // Show staged files
+        if (info.git_status.staged && info.git_status.staged.length > 0) {
+            html += `<div style="font-size:11px;color:#3fb950;font-weight:600;padding:4px 0;border-bottom:1px solid #21262d">STAGED (ready to commit)</div>`;
+            for (const f of info.git_status.staged) {
+                const action = f.action === 'A' ? 'new' : f.action === 'M' ? 'modified' : f.action === 'D' ? 'deleted' : f.action;
+                html += `<div class="push-file-item ok"><span class="file-icon">●</span><span>${f.path}</span><span style="margin-left:auto;font-size:10px;color:#3fb950">${action}</span></div>`;
+            }
+        }
+        // Show modified (unstaged)
+        if (info.git_status.modified && info.git_status.modified.length > 0) {
+            html += `<div style="font-size:11px;color:#d29922;font-weight:600;padding:4px 0;margin-top:4px;border-bottom:1px solid #21262d">MODIFIED (unstaged)</div>`;
+            for (const f of info.git_status.modified) {
+                html += `<div class="push-file-item"><span class="file-icon" style="color:#d29922">◐</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#d29922">modified</span></div>`;
+            }
+        }
+        // Show untracked
+        if (info.git_status.untracked && info.git_status.untracked.length > 0) {
+            html += `<div style="font-size:11px;color:#58a6ff;font-weight:600;padding:4px 0;margin-top:4px;border-bottom:1px solid #21262d">UNTRACKED (new files)</div>`;
+            for (const f of info.git_status.untracked) {
+                html += `<div class="push-file-item"><span class="file-icon" style="color:#58a6ff">+</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#58a6ff">new</span></div>`;
+            }
+        }
+        // Show deleted
+        if (info.git_status.deleted && info.git_status.deleted.length > 0) {
+            html += `<div style="font-size:11px;color:#f85149;font-weight:600;padding:4px 0;margin-top:4px;border-bottom:1px solid #21262d">DELETED</div>`;
+            for (const f of info.git_status.deleted) {
+                html += `<div class="push-file-item fail"><span class="file-icon">✘</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#f85149">deleted</span></div>`;
+            }
         }
     }
-    for (const f of info.files_failed) {
-        html += `<div class="push-file-item fail"><span class="file-icon">✘</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#f85149">failed</span></div>`;
+    // Show pushed results
+    if (info.files_pushed && info.files_pushed.length > 0) {
+        html += `<div style="font-size:11px;color:#3fb950;font-weight:600;padding:4px 0;margin-top:8px;border-bottom:1px solid #21262d">PUSHED (committed)</div>`;
+        for (const f of info.files_pushed) {
+            html += `<div class="push-file-item ok"><span class="file-icon">✔</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#3fb950">pushed</span></div>`;
+        }
     }
-    if (info.files_pushed.length === 0 && info.files_failed.length === 0 && (!info.files_skipped || info.files_skipped.length === 0) && info.files_found) {
+    if (info.files_failed && info.files_failed.length > 0) {
+        for (const f of info.files_failed) {
+            html += `<div class="push-file-item fail"><span class="file-icon">✘</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#f85149">failed</span></div>`;
+        }
+    }
+    // If no status breakdown available, fallback to simple list
+    if (!info.git_status && info.files_found && info.files_found.length > 0 && (!info.files_pushed || info.files_pushed.length === 0)) {
         for (const f of info.files_found) {
             html += `<div class="push-file-item"><span class="file-icon">○</span><span>${f}</span></div>`;
         }
@@ -576,23 +625,48 @@ function renderPushInfo(info) {
         html += `<strong style="color:#a371f7;font-size:13px">📁 ${info.github_user}/copilot-bridge</strong>`;
         html += `<span style="color:#8b949e;font-size:11px;margin-left:8px">${info.bridge.source_dir}</span></div>`;
         html += '<dl class="push-info-meta">';
-        const bSkip = info.bridge.files_skipped ? info.bridge.files_skipped.length : 0;
-        const bFail = info.bridge.files_failed ? info.bridge.files_failed.length : 0;
-        const bCommits = info.bridge.total_commits || info.bridge.total_pushed;
-        html += `<dt>Files</dt><dd>${bCommits} pushed, ${bSkip} unchanged${bFail ? `, ${bFail} failed` : ''} (${info.bridge.total_found} total)</dd>`;
+        html += `<dt>Total in Repo</dt><dd>${bridgeTotalInRepo} tracked files</dd>`;
+        if (info.bridge.git_status && info.bridge.git_status.summary) {
+            const bs = info.bridge.git_status.summary;
+            html += `<dt>Git Status</dt><dd>`;
+            html += `<span style="color:#3fb950">Staged: ${bs.staged_count}</span> | `;
+            html += `<span style="color:#d29922">Modified: ${bs.modified_count}</span> | `;
+            html += `<span style="color:#58a6ff">Untracked: ${bs.untracked_count}</span> | `;
+            html += `<span style="color:#f85149">Deleted: ${bs.deleted_count}</span>`;
+            html += `</dd>`;
+        }
+        html += `<dt>To Process</dt><dd>${info.bridge.total_found} files → add, commit, push</dd>`;
+        html += `<dt>Pushed</dt><dd>${info.bridge.total_pushed} files in ${info.bridge.total_commits || 0} commit(s)</dd>`;
         html += '</dl>';
         html += '<div class="push-files-list">';
-        for (const f of info.bridge.files_pushed) {
-            html += `<div class="push-file-item ok"><span class="file-icon">✔</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#3fb950">changed</span></div>`;
-        }
-        if (info.bridge.files_skipped) {
-            for (const f of info.bridge.files_skipped) {
-                html += `<div class="push-file-item"><span class="file-icon">─</span><span style="color:#8b949e">${f}</span><span style="margin-left:auto;font-size:10px;color:#8b949e">unchanged</span></div>`;
+
+        // Bridge git status breakdown
+        if (info.bridge.git_status) {
+            if (info.bridge.git_status.staged && info.bridge.git_status.staged.length > 0) {
+                html += `<div style="font-size:11px;color:#3fb950;font-weight:600;padding:4px 0;border-bottom:1px solid #21262d">STAGED</div>`;
+                for (const f of info.bridge.git_status.staged) {
+                    const action = f.action === 'A' ? 'new' : f.action === 'M' ? 'modified' : f.action === 'D' ? 'deleted' : f.action;
+                    html += `<div class="push-file-item ok"><span class="file-icon">●</span><span>${f.path}</span><span style="margin-left:auto;font-size:10px;color:#3fb950">${action}</span></div>`;
+                }
+            }
+            if (info.bridge.git_status.modified && info.bridge.git_status.modified.length > 0) {
+                html += `<div style="font-size:11px;color:#d29922;font-weight:600;padding:4px 0;margin-top:4px;border-bottom:1px solid #21262d">MODIFIED (unstaged)</div>`;
+                for (const f of info.bridge.git_status.modified) {
+                    html += `<div class="push-file-item"><span class="file-icon" style="color:#d29922">◐</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#d29922">modified</span></div>`;
+                }
+            }
+            if (info.bridge.git_status.untracked && info.bridge.git_status.untracked.length > 0) {
+                html += `<div style="font-size:11px;color:#58a6ff;font-weight:600;padding:4px 0;margin-top:4px;border-bottom:1px solid #21262d">UNTRACKED</div>`;
+                for (const f of info.bridge.git_status.untracked) {
+                    html += `<div class="push-file-item"><span class="file-icon" style="color:#58a6ff">+</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#58a6ff">new</span></div>`;
+                }
             }
         }
-        if (info.bridge.files_failed) {
-            for (const f of info.bridge.files_failed) {
-                html += `<div class="push-file-item fail"><span class="file-icon">✘</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#f85149">failed</span></div>`;
+        // Pushed results
+        if (info.bridge.files_pushed && info.bridge.files_pushed.length > 0) {
+            html += `<div style="font-size:11px;color:#3fb950;font-weight:600;padding:4px 0;margin-top:4px;border-bottom:1px solid #21262d">PUSHED</div>`;
+            for (const f of info.bridge.files_pushed) {
+                html += `<div class="push-file-item ok"><span class="file-icon">✔</span><span>${f}</span><span style="margin-left:auto;font-size:10px;color:#3fb950">pushed</span></div>`;
             }
         }
         html += '</div>';

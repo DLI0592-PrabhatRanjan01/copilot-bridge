@@ -64,7 +64,7 @@ PIPELINE_STEPS = [
 
 
 def set_step(step_id, status="running", message=""):
-    """Update a pipeline step status. status: pending|running|done|error"""
+    """Update a pipeline step status. status: pending|running|done|error|waiting"""
     for s in pipeline_state["steps"]:
         if s["id"] == step_id:
             s["status"] = status
@@ -244,20 +244,67 @@ def git_ensure_remote_url(cwd, repo_name):
 
 
 def git_get_status(cwd):
-    """Run git status and return list of changed/new/deleted files."""
+    """Run git status and return detailed breakdown of changes.
+    Returns dict with: staged, modified, untracked, deleted, all_changes, summary
+    """
     ok, stdout, stderr = git_run(["status", "--porcelain"], cwd)
     if not ok:
         return None
-    files = []
+
+    staged = []       # Files added to index (ready to commit)
+    modified = []     # Modified but not staged
+    untracked = []    # New files not tracked
+    deleted = []      # Deleted files
+    all_changes = []  # All files with their status
+
     for line in stdout.splitlines():
-        if line.strip():
-            status_code = line[:2].strip()
-            filepath = line[3:].strip()
-            # Handle quoted paths (git quotes paths with special chars)
-            if filepath.startswith('"') and filepath.endswith('"'):
-                filepath = filepath[1:-1]
-            files.append({"status": status_code, "path": filepath})
-    return files
+        if not line.strip():
+            continue
+        # Git porcelain format: XY filename
+        # X = index status, Y = working tree status
+        index_status = line[0] if len(line) > 0 else ' '
+        work_status = line[1] if len(line) > 1 else ' '
+        filepath = line[3:].strip()
+        # Handle quoted paths
+        if filepath.startswith('"') and filepath.endswith('"'):
+            filepath = filepath[1:-1]
+
+        file_info = {"path": filepath, "index": index_status, "working": work_status}
+        all_changes.append(file_info)
+
+        # Categorize
+        if index_status == '?' and work_status == '?':
+            untracked.append(filepath)
+        else:
+            if index_status in ('A', 'M', 'D', 'R', 'C'):
+                staged.append({"path": filepath, "action": index_status})
+            if index_status == 'D' or work_status == 'D':
+                deleted.append(filepath)
+            if work_status == 'M':
+                modified.append(filepath)
+
+    return {
+        "staged": staged,
+        "modified": modified,
+        "untracked": untracked,
+        "deleted": deleted,
+        "all_changes": all_changes,
+        "total_changed": len(all_changes),
+        "summary": {
+            "staged_count": len(staged),
+            "modified_count": len(modified),
+            "untracked_count": len(untracked),
+            "deleted_count": len(deleted),
+        }
+    }
+
+
+def git_count_total_files(cwd):
+    """Count total tracked files in the repo using git ls-files."""
+    ok, stdout, stderr = git_run(["ls-files"], cwd)
+    if not ok:
+        return 0
+    return len([f for f in stdout.splitlines() if f.strip()])
 
 
 def git_pull_latest(cwd, branch="main"):
@@ -376,47 +423,79 @@ def run_pipeline():
         git_pull_latest(local_path, branch)
         git_pull_latest(bridge_dir, branch)
 
-        # Get git status for target repo
-        target_changes = git_get_status(local_path)
-        if target_changes is None:
+        # Get git status for target repo (detailed breakdown)
+        target_status = git_get_status(local_path)
+        if target_status is None:
             set_step("scan", "error", f"Not a git repo: {local_path}")
             return {"success": False, "error": f"git status failed in {local_path}"}
 
-        # Get git status for bridge repo
-        bridge_changes = git_get_status(bridge_dir)
-        if bridge_changes is None:
+        # Get git status for bridge repo (detailed breakdown)
+        bridge_status_info = git_get_status(bridge_dir)
+        if bridge_status_info is None:
             set_step("scan", "error", f"Not a git repo: {bridge_dir}")
             return {"success": False, "error": f"git status failed in {bridge_dir}"}
 
-        # Store push info for dashboard
-        target_changed_files = [f["path"] for f in target_changes] if target_changes else []
-        bridge_changed_files = [f["path"] for f in bridge_changes] if bridge_changes else []
+        # Count total tracked files in each repo
+        target_total_files = git_count_total_files(local_path)
+        bridge_total_files = git_count_total_files(bridge_dir)
 
+        # Extract file paths for processing
+        target_changed_files = [f["path"] for f in target_status["all_changes"]]
+        bridge_changed_files = [f["path"] for f in bridge_status_info["all_changes"]]
+
+        # Store push info with detailed breakdown for dashboard
         pipeline_state["push_info"] = {
             "source_dir": local_path,
             "target_repo": target_repo,
             "github_user": config["github_user"],
             "branch": branch,
+            "total_files_in_repo": target_total_files,
+            "git_status": {
+                "staged": target_status["staged"],
+                "modified": target_status["modified"],
+                "untracked": target_status["untracked"],
+                "deleted": target_status["deleted"],
+                "summary": target_status["summary"],
+            },
             "files_found": target_changed_files,
             "files_pushed": [],
             "files_skipped": [],
             "files_failed": [],
-            "total_found": len(target_changed_files),
+            "total_found": target_status["total_changed"],
             "total_pushed": 0,
             "bridge": {
                 "source_dir": bridge_dir,
                 "repo": "copilot-bridge",
+                "total_files_in_repo": bridge_total_files,
+                "git_status": {
+                    "staged": bridge_status_info["staged"],
+                    "modified": bridge_status_info["modified"],
+                    "untracked": bridge_status_info["untracked"],
+                    "deleted": bridge_status_info["deleted"],
+                    "summary": bridge_status_info["summary"],
+                },
                 "files_found": bridge_changed_files,
                 "files_pushed": [],
                 "files_skipped": [],
                 "files_failed": [],
-                "total_found": len(bridge_changed_files),
+                "total_found": bridge_status_info["total_changed"],
                 "total_pushed": 0,
                 "total_commits": 0,
             }
         }
 
-        scan_msg = f"Target: {len(target_changed_files)} changed | Bridge: {len(bridge_changed_files)} changed"
+        # Build detailed scan message
+        ts = target_status["summary"]
+        bs = bridge_status_info["summary"]
+        scan_msg = (
+            f"Target: {target_status['total_changed']} to process "
+            f"(staged:{ts['staged_count']} modified:{ts['modified_count']} "
+            f"untracked:{ts['untracked_count']} deleted:{ts['deleted_count']}) "
+            f"of {target_total_files} total | "
+            f"Bridge: {bridge_status_info['total_changed']} to process "
+            f"(staged:{bs['staged_count']} modified:{bs['modified_count']} "
+            f"untracked:{bs['untracked_count']}) of {bridge_total_files} total"
+        )
         set_step("scan", "done", scan_msg)
 
         # === STEP 2: PUSH using git add → git commit → git push ===
@@ -490,14 +569,13 @@ def run_pipeline():
 
         if config["mode"] == "split":
             # SPLIT MODE: NOCOPO runs on a separate machine
-            # After pushing code + status, we wait for NOCOPO to pick it up and push output
-            set_step("detect", "done", "Code pushed - waiting for NOCOPO system...")
+            # Mark steps as "waiting" - they haven't been processed yet
+            set_step("detect", "waiting", "Waiting for NOCOPO to detect changes...")
 
-            # Skip Steps 4-8 (handled by nocopo_server.py on other machine)
-            for skip_step in ["pull", "install", "run", "capture", "push_output"]:
-                set_step(skip_step, "done", "Handled by NOCOPO system")
+            for wait_step in ["pull", "install", "run", "capture", "push_output"]:
+                set_step(wait_step, "waiting", "Waiting for NOCOPO system...")
 
-            # Poll for output_ready from NOCOPO
+            # Poll for NOCOPO progress and output_ready
             set_step("receive", "running", "Polling for NOCOPO output...")
             iteration = len(pipeline_state["history"]) + 1
             max_wait = config["timeout"] + 60  # Extra time for NOCOPO overhead
@@ -513,10 +591,26 @@ def run_pipeline():
                 if status_bytes:
                     try:
                         status_data = json.loads(status_bytes.decode("utf-8"))
+
+                        # Track NOCOPO intermediate progress
+                        nocopo_step = status_data.get("nocopo_step", "")
+                        nocopo_msg = status_data.get("nocopo_message", "")
+                        if nocopo_step:
+                            # Update steps based on NOCOPO's reported progress
+                            step_order = ["detect", "pull", "install", "run", "capture", "push_output"]
+                            nocopo_idx = step_order.index(nocopo_step) if nocopo_step in step_order else -1
+                            for i, sid in enumerate(step_order):
+                                if i < nocopo_idx:
+                                    set_step(sid, "done", "Completed by NOCOPO")
+                                elif i == nocopo_idx:
+                                    set_step(sid, "running", nocopo_msg or f"NOCOPO: {sid}...")
+
                         if (status_data.get("state") == "output_ready" and
                             status_data.get("pushed_by") == "nocopo" and
                             status_data.get("iteration", 0) >= iteration):
-                            # NOCOPO has finished! Get the output
+                            # NOCOPO has finished! Mark all NOCOPO steps done
+                            for sid in ["detect", "pull", "install", "run", "capture", "push_output"]:
+                                set_step(sid, "done", "Completed by NOCOPO")
                             exit_code = status_data.get("exit_code", 0)
                             run_status = "SUCCESS" if exit_code == 0 else "FAILED"
                             output_content = get_github_file_content("copilot-bridge", "output.txt")
@@ -532,8 +626,13 @@ def run_pipeline():
                 if not pipeline_state["running"]:
                     set_step("receive", "error", "Pipeline stopped by user")
                     return {"success": False, "error": "Pipeline stopped"}
-                set_step("receive", "error", f"Timeout waiting for NOCOPO ({max_wait}s)")
-                return {"success": False, "error": "NOCOPO did not respond in time"}
+                # Mark unfinished NOCOPO steps as error
+                for sid in ["detect", "pull", "install", "run", "capture", "push_output"]:
+                    step_data = next((s for s in pipeline_state["steps"] if s["id"] == sid), None)
+                    if step_data and step_data["status"] == "waiting":
+                        set_step(sid, "error", "NOCOPO did not respond")
+                set_step("receive", "error", f"Timeout waiting for NOCOPO ({max_wait}s) - Is NOCOPO system running?")
+                return {"success": False, "error": "NOCOPO did not respond in time. Check if nocopo_server.py is running."}
 
             set_step("receive", "done", f"Output received from NOCOPO ({run_status})")
 

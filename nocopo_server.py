@@ -234,6 +234,25 @@ def get_status_json():
 # ============================================================
 # DETECTION LOGIC
 # ============================================================
+def update_bridge_progress(step_id, message=""):
+    """Push intermediate progress to copilot-bridge status.json so COPO can track steps."""
+    config = nocopo_state["config"]
+    try:
+        current_status, sha = get_file_content(config["bridge_repo"], "status.json")
+        if current_status:
+            status_data = json.loads(current_status)
+        else:
+            status_data = {}
+        status_data["nocopo_step"] = step_id
+        status_data["nocopo_message"] = message
+        status_data["nocopo_updated_at"] = datetime.now().isoformat()
+        push_file(config["bridge_repo"], "status.json",
+                  json.dumps(status_data, indent=2),
+                  f"[NOCOPO] Progress: {step_id} - {message}")
+    except Exception as e:
+        print(f"[NOCOPO] Warning: Failed to push progress update: {e}")
+
+
 def detect_changes():
     """Check if COPO pushed new changes. Returns (triggered, reason)."""
     config = nocopo_state["config"]
@@ -309,9 +328,11 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
     try:
         # DETECT
         set_step("detect", "done", trigger_reason)
+        update_bridge_progress("detect", trigger_reason)
 
         # PULL
         set_step("pull", "running", f"Cloning/pulling {config['target_repo']}...")
+        update_bridge_progress("pull", f"Pulling {config['target_repo']}...")
         token = config["pat_token"]
         user = config["github_user"]
         branch = config["branch"]
@@ -349,6 +370,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
 
         # INSTALL
         set_step("install", "running", "Checking dependencies...")
+        update_bridge_progress("install", "Installing dependencies...")
         req_file = os.path.join(repo_dir, "requirements.txt")
         if os.path.exists(req_file):
             subprocess.run(
@@ -361,6 +383,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
 
         # RUN
         set_step("run", "running", "Executing code...")
+        update_bridge_progress("run", "Running code...")
         run_cmd = config["run_command"]
         entry = config["entry_point"]
         timeout_sec = config["timeout"]
@@ -418,6 +441,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
 
         # CAPTURE
         set_step("capture", "running", "Formatting output...")
+        update_bridge_progress("capture", "Capturing output...")
         output_parts = [
             f"=== Target: {target_repo} ===",
             f"=== Command: {' '.join(cmd_parts)} ===",
@@ -436,6 +460,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
 
         # PUSH OUTPUT
         set_step("push_output", "running", "Pushing output to copilot-bridge...")
+        update_bridge_progress("push_output", "Pushing output to bridge...")
         bridge_repo = config["bridge_repo"]
         iteration = (nocopo_state["last_result"]["iteration"] + 1) if nocopo_state["last_result"] else 1
 
