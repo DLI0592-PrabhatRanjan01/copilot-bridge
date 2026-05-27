@@ -12,7 +12,6 @@ import threading
 import subprocess
 import tempfile
 import shutil
-import hashlib
 import requests
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -149,8 +148,8 @@ def get_github_file_content(repo_name, filepath):
     return None
 
 
-def push_multiple_files_to_github(repo_name, files, commit_message, retries=2):
-    """Push multiple files in a single commit using Git Data API.
+def push_multiple_files_to_github(repo_name, files, commit_message, retries=3):
+    """Push multiple files in a single commit using Git Data API (used for output push in single mode).
     files: list of {"path": "filename", "content_bytes": b"..."}
     Returns True on success.
     """
@@ -159,35 +158,29 @@ def push_multiple_files_to_github(repo_name, files, commit_message, retries=2):
         if result:
             return True
         if attempt < retries:
-            time.sleep(2)  # Wait before retry
-            print(f"[COPO] Multi-file push to {repo_name} failed (attempt {attempt+1}), retrying...")
-    print(f"[COPO] Multi-file push to {repo_name} failed after {retries+1} attempts")
+            wait = 3 * (attempt + 1)
+            time.sleep(wait)
     return False
 
 
 def _try_push_multiple_files(repo_name, files, commit_message):
-    """Single attempt to push multiple files in one commit."""
+    """Single attempt to push multiple files in one commit via API."""
     headers = get_headers()
     branch = pipeline_state["config"]["branch"]
     base_url = github_api_base(repo_name)
 
-    # 1. Get latest commit SHA for the branch
     ref_url = f"{base_url}/git/refs/heads/{branch}"
     resp = requests.get(ref_url, headers=headers)
     if resp.status_code != 200:
-        print(f"[COPO] Failed to get ref for {repo_name}: {resp.status_code}")
         return False
     latest_commit_sha = resp.json()["object"]["sha"]
 
-    # 2. Get the tree SHA from that commit
     commit_url = f"{base_url}/git/commits/{latest_commit_sha}"
     resp = requests.get(commit_url, headers=headers)
     if resp.status_code != 200:
-        print(f"[COPO] Failed to get commit for {repo_name}: {resp.status_code}")
         return False
     base_tree_sha = resp.json()["tree"]["sha"]
 
-    # 3. Create blobs for each file
     tree_items = []
     for file_info in files:
         blob_url = f"{base_url}/git/blobs"
@@ -197,7 +190,6 @@ def _try_push_multiple_files(repo_name, files, commit_message):
         }
         resp = requests.post(blob_url, headers=headers, json=blob_data)
         if resp.status_code != 201:
-            print(f"[COPO] Failed to create blob for {file_info['path']}: {resp.status_code} {resp.text[:200]}")
             return False
         blob_sha = resp.json()["sha"]
         tree_items.append({
@@ -207,38 +199,125 @@ def _try_push_multiple_files(repo_name, files, commit_message):
             "sha": blob_sha
         })
 
-    # 4. Create new tree
     tree_url = f"{base_url}/git/trees"
-    tree_data = {
-        "base_tree": base_tree_sha,
-        "tree": tree_items
-    }
+    tree_data = {"base_tree": base_tree_sha, "tree": tree_items}
     resp = requests.post(tree_url, headers=headers, json=tree_data)
     if resp.status_code != 201:
-        print(f"[COPO] Failed to create tree for {repo_name}: {resp.status_code} {resp.text[:200]}")
         return False
     new_tree_sha = resp.json()["sha"]
 
-    # 5. Create commit
     commit_create_url = f"{base_url}/git/commits"
-    commit_data = {
-        "message": commit_message,
-        "tree": new_tree_sha,
-        "parents": [latest_commit_sha]
-    }
+    commit_data = {"message": commit_message, "tree": new_tree_sha, "parents": [latest_commit_sha]}
     resp = requests.post(commit_create_url, headers=headers, json=commit_data)
     if resp.status_code != 201:
-        print(f"[COPO] Failed to create commit for {repo_name}: {resp.status_code} {resp.text[:200]}")
         return False
     new_commit_sha = resp.json()["sha"]
 
-    # 6. Update branch reference (force=True since we know our parent is correct)
     update_data = {"sha": new_commit_sha, "force": True}
     resp = requests.patch(ref_url, headers=headers, json=update_data)
-    if resp.status_code != 200:
-        print(f"[COPO] Failed to update ref for {repo_name}: {resp.status_code} {resp.text[:200]}")
-        return False
-    return True
+    return resp.status_code == 200
+
+
+# ============================================================
+# GIT COMMAND HELPERS
+# ============================================================
+def git_run(args, cwd, timeout=60):
+    """Run a git command and return (success, stdout, stderr)."""
+    try:
+        result = subprocess.run(
+            ["git"] + args,
+            capture_output=True, text=True, cwd=cwd, timeout=timeout
+        )
+        return result.returncode == 0, result.stdout.strip(), result.stderr.strip()
+    except subprocess.TimeoutExpired:
+        return False, "", "Timeout"
+    except Exception as e:
+        return False, "", str(e)
+
+
+def git_ensure_remote_url(cwd, repo_name):
+    """Ensure the git remote 'origin' uses the PAT token for auth."""
+    token = pipeline_state["config"]["pat_token"]
+    user = pipeline_state["config"]["github_user"]
+    url = f"https://{token}@github.com/{user}/{repo_name}.git"
+    git_run(["remote", "set-url", "origin", url], cwd)
+
+
+def git_get_status(cwd):
+    """Run git status and return list of changed/new/deleted files."""
+    ok, stdout, stderr = git_run(["status", "--porcelain"], cwd)
+    if not ok:
+        return None
+    files = []
+    for line in stdout.splitlines():
+        if line.strip():
+            status_code = line[:2].strip()
+            filepath = line[3:].strip()
+            # Handle quoted paths (git quotes paths with special chars)
+            if filepath.startswith('"') and filepath.endswith('"'):
+                filepath = filepath[1:-1]
+            files.append({"status": status_code, "path": filepath})
+    return files
+
+
+def git_pull_latest(cwd, branch="main"):
+    """Pull latest changes from remote. Stashes local changes if needed."""
+    # Check if there are uncommitted changes
+    ok, stdout, _ = git_run(["status", "--porcelain"], cwd)
+    has_changes = bool(stdout.strip())
+
+    if has_changes:
+        git_run(["stash"], cwd)
+
+    git_run(["pull", "origin", branch, "--rebase"], cwd)
+
+    if has_changes:
+        git_run(["stash", "pop"], cwd)
+
+
+def git_add_commit_push(cwd, commit_message, branch="main"):
+    """Stage all changes, commit, and push. Returns (success, files_committed, error)."""
+    # Stage all changes
+    ok, _, err = git_run(["add", "-A"], cwd)
+    if not ok:
+        return False, [], f"git add failed: {err}"
+
+    # Check if there's anything to commit
+    ok, stdout, _ = git_run(["status", "--porcelain"], cwd)
+    if not stdout.strip():
+        return True, [], ""  # Nothing to commit
+
+    # Get list of staged files
+    ok, diff_output, _ = git_run(["diff", "--cached", "--name-only"], cwd)
+    committed_files = [f for f in diff_output.splitlines() if f.strip()]
+
+    # Commit
+    ok, _, err = git_run(["commit", "-m", commit_message], cwd)
+    if not ok:
+        if "nothing to commit" in err:
+            return True, [], ""
+        return False, [], f"git commit failed: {err}"
+
+    # Pull --rebase BEFORE pushing (to get remote changes under our commit)
+    ok, _, pull_err = git_run(["pull", "origin", branch, "--rebase"], cwd)
+    if not ok:
+        # If rebase fails due to conflicts, abort and force push
+        git_run(["rebase", "--abort"], cwd)
+        print(f"[COPO] Pull rebase failed, force pushing: {pull_err}")
+        ok, _, err = git_run(["push", "origin", branch, "--force-with-lease"], cwd)
+        if not ok:
+            return False, committed_files, f"git push failed: {err}"
+        return True, committed_files, ""
+
+    # Push
+    ok, _, err = git_run(["push", "origin", branch], cwd)
+    if not ok:
+        # Last resort: force push
+        ok, _, err = git_run(["push", "origin", branch, "--force-with-lease"], cwd)
+        if not ok:
+            return False, committed_files, f"git push failed: {err}"
+
+    return True, committed_files, ""
 
 
 # ============================================================
@@ -249,145 +328,97 @@ def run_pipeline():
     config = pipeline_state["config"]
 
     try:
-        # === STEP 1: SCAN local changes ===
-        set_step("scan", "running", "Scanning local repo for files...")
+        # === STEP 1: SCAN local changes using git status ===
+        set_step("scan", "running", "Checking git status for changes...")
         local_path = config["local_repo_path"]
         if not local_path or not os.path.isdir(local_path):
             set_step("scan", "error", f"Local path not found: {local_path}")
             return {"success": False, "error": f"Local path not found: {local_path}"}
 
-        # Collect all trackable files
-        track_ext = {".py", ".txt", ".json", ".yml", ".yaml", ".cfg", ".toml",
-                     ".js", ".ts", ".html", ".css", ".sh", ".bat", ".md"}
-        ignore_dirs = {".git", "__pycache__", "node_modules", ".venv", "venv", ".env"}
-        files_to_push = []
-
-        for root, dirs, files in os.walk(local_path):
-            dirs[:] = [d for d in dirs if d not in ignore_dirs]
-            for fname in files:
-                ext = os.path.splitext(fname)[1].lower()
-                if ext in track_ext:
-                    full_path = os.path.join(root, fname)
-                    rel_path = os.path.relpath(full_path, local_path).replace("\\", "/")
-                    files_to_push.append((rel_path, full_path))
-
-        if not files_to_push:
-            set_step("scan", "error", "No trackable files found")
-            return {"success": False, "error": "No files found to push"}
-
-        set_step("scan", "done", f"Found {len(files_to_push)} files")
-
-        # Also scan copilot-bridge files
+        target_repo = config["target_repo"]
+        branch = config["branch"]
         bridge_dir = os.path.dirname(os.path.abspath(__file__))
-        bridge_files = []
-        # These files are pipeline artifacts - they get pushed/overwritten later in the pipeline
-        # No need to push them in the initial scan (avoids redundant commits)
-        bridge_artifact_patterns = {"output.txt", "status.json"}
-        for root, dirs, files in os.walk(bridge_dir):
-            dirs[:] = [d for d in dirs if d not in ignore_dirs]
-            for fname in files:
-                ext = os.path.splitext(fname)[1].lower()
-                if ext in track_ext:
-                    full_path = os.path.join(root, fname)
-                    rel_path = os.path.relpath(full_path, bridge_dir).replace("\\", "/")
-                    # Skip pipeline artifacts and output iteration files
-                    if rel_path in bridge_artifact_patterns or rel_path.startswith("output_iteration"):
-                        continue
-                    bridge_files.append((rel_path, full_path))
+
+        # Ensure git remotes have PAT token
+        git_ensure_remote_url(local_path, target_repo)
+        git_ensure_remote_url(bridge_dir, "copilot-bridge")
+
+        # Pull latest to avoid conflicts
+        git_pull_latest(local_path, branch)
+        git_pull_latest(bridge_dir, branch)
+
+        # Get git status for target repo
+        target_changes = git_get_status(local_path)
+        if target_changes is None:
+            set_step("scan", "error", f"Not a git repo: {local_path}")
+            return {"success": False, "error": f"git status failed in {local_path}"}
+
+        # Get git status for bridge repo
+        bridge_changes = git_get_status(bridge_dir)
+        if bridge_changes is None:
+            set_step("scan", "error", f"Not a git repo: {bridge_dir}")
+            return {"success": False, "error": f"git status failed in {bridge_dir}"}
 
         # Store push info for dashboard
+        target_changed_files = [f["path"] for f in target_changes] if target_changes else []
+        bridge_changed_files = [f["path"] for f in bridge_changes] if bridge_changes else []
+
         pipeline_state["push_info"] = {
             "source_dir": local_path,
-            "target_repo": config["target_repo"],
+            "target_repo": target_repo,
             "github_user": config["github_user"],
-            "branch": config["branch"],
-            "files_found": [rel for rel, _ in files_to_push],
+            "branch": branch,
+            "files_found": target_changed_files,
             "files_pushed": [],
             "files_skipped": [],
             "files_failed": [],
-            "total_found": len(files_to_push),
+            "total_found": len(target_changed_files),
             "total_pushed": 0,
             "bridge": {
                 "source_dir": bridge_dir,
                 "repo": "copilot-bridge",
-                "files_found": [rel for rel, _ in bridge_files],
+                "files_found": bridge_changed_files,
                 "files_pushed": [],
                 "files_skipped": [],
                 "files_failed": [],
-                "total_found": len(bridge_files),
+                "total_found": len(bridge_changed_files),
                 "total_pushed": 0,
                 "total_commits": 0,
             }
         }
 
-        # === STEP 2: PUSH to GitHub ===
-        set_step("push", "running", f"Comparing {len(files_to_push)} files with remote...")
-        target_repo = config["target_repo"]
+        scan_msg = f"Target: {len(target_changed_files)} changed | Bridge: {len(bridge_changed_files)} changed"
+        set_step("scan", "done", scan_msg)
+
+        # === STEP 2: PUSH using git add → git commit → git push ===
+        set_step("push", "running", "Pushing changes to GitHub...")
         pushed = 0
-        skipped = 0
-        failed = []
-        changed_files_target = []  # Files that actually need pushing
 
-        for rel_path, full_path in files_to_push:
-            with open(full_path, "rb") as f:
-                content = f.read()
-            # Check if content changed
-            remote_sha, remote_content = get_file_info(target_repo, rel_path)
-            if not is_content_changed(content, remote_content):
-                skipped += 1
-                pipeline_state["push_info"]["files_skipped"].append(rel_path)
-            else:
-                changed_files_target.append({"path": rel_path, "content_bytes": content})
-                pipeline_state["push_info"]["files_pushed"].append(rel_path)
-                pushed += 1
-            set_step("push", "running", f"Checked {pushed + skipped}/{len(files_to_push)} files...")
-
-        # Push all changed target files in ONE commit
-        if changed_files_target:
+        # --- Push target repo (web-scraper) ---
+        if target_changed_files:
             custom_msg = config.get("commit_message", "").strip()
             if custom_msg:
                 target_commit_msg = f"[COPO] {custom_msg}"
             else:
-                file_names = ", ".join(f["path"] for f in changed_files_target)
-                target_commit_msg = f"[COPO] Update {file_names}"
-            success = push_multiple_files_to_github(target_repo, changed_files_target, target_commit_msg)
-            if not success:
-                # Fallback: individual pushes with same commit message
-                for f in changed_files_target:
-                    push_file_to_github(target_repo, f["path"], f["content_bytes"], target_commit_msg)
-        elif len(failed) == len(files_to_push):
-            set_step("push", "error", "All files failed to push")
-            return {"success": False, "error": "Push failed", "failed_files": failed}
+                target_commit_msg = f"[COPO] Update {', '.join(target_changed_files[:5])}"
+                if len(target_changed_files) > 5:
+                    target_commit_msg += f" (+{len(target_changed_files)-5} more)"
 
-        pipeline_state["push_info"]["total_pushed"] = pushed
-        msg = f"{pushed} pushed, {skipped} unchanged"
-        if failed:
-            msg += f", {len(failed)} failed"
-        set_step("push", "done", f"{msg} (1 commit)")
-
-        # Brief pause to avoid GitHub API rate limiting between repos
-        if changed_files_target:
-            time.sleep(1)
-
-        # Also push copilot-bridge files in ONE commit
-        set_step("push", "done", f"{msg} | Checking copilot-bridge...")
-        b_pushed = 0
-        b_skipped = 0
-        changed_files_bridge = []
-
-        for rel_path, full_path in bridge_files:
-            with open(full_path, "rb") as f:
-                content = f.read()
-            remote_sha, remote_content = get_file_info("copilot-bridge", rel_path)
-            if not is_content_changed(content, remote_content):
-                b_skipped += 1
-                pipeline_state["push_info"]["bridge"]["files_skipped"].append(rel_path)
+            set_step("push", "running", f"Pushing {len(target_changed_files)} files to {target_repo}...")
+            ok, committed, err = git_add_commit_push(local_path, target_commit_msg, branch)
+            if ok:
+                pushed = len(committed)
+                pipeline_state["push_info"]["files_pushed"] = committed
+                pipeline_state["push_info"]["total_pushed"] = pushed
+                set_step("push", "running", f"Target: {pushed} pushed")
             else:
-                changed_files_bridge.append({"path": rel_path, "content_bytes": content})
-                pipeline_state["push_info"]["bridge"]["files_pushed"].append(rel_path)
-                b_pushed += 1
+                set_step("push", "error", f"Target push failed: {err}")
+                return {"success": False, "error": f"Target push failed: {err}"}
+        else:
+            set_step("push", "running", "Target: no changes")
 
-        # Add status.json to bridge commit
+        # --- Push bridge repo (copilot-bridge) ---
+        # Write status.json locally before committing (so it's included in same commit)
         bridge_status = {
             "state": "code_ready",
             "pushed_by": "copo",
@@ -399,32 +430,31 @@ def run_pipeline():
             "run_command": config["run_command"],
             "message": f"Code pushed from {os.path.basename(local_path)}"
         }
-        changed_files_bridge.append({
-            "path": "status.json",
-            "content_bytes": json.dumps(bridge_status, indent=2).encode()
-        })
-        if "status.json" not in pipeline_state["push_info"]["bridge"]["files_pushed"]:
-            pipeline_state["push_info"]["bridge"]["files_pushed"].append("status.json")
-        b_pushed += 1
+        status_path = os.path.join(bridge_dir, "status.json")
+        with open(status_path, "w", encoding="utf-8") as f:
+            json.dump(bridge_status, f, indent=2)
 
-        # Push all bridge files in ONE commit
-        if changed_files_bridge:
-            custom_msg = config.get("commit_message", "").strip()
-            if custom_msg:
-                bridge_commit_msg = f"[COPO] {custom_msg}"
-            else:
-                file_names = ", ".join(f["path"] for f in changed_files_bridge)
-                bridge_commit_msg = f"[COPO] Bridge: {file_names}"
-            success = push_multiple_files_to_github("copilot-bridge", changed_files_bridge, bridge_commit_msg)
-            if not success:
-                # Fallback: individual pushes with same commit message
-                for f in changed_files_bridge:
-                    push_file_to_github("copilot-bridge", f["path"], f["content_bytes"], bridge_commit_msg)
-            pipeline_state["push_info"]["bridge"]["total_commits"] = 1
+        # Now git add/commit/push bridge repo (includes status.json + any other changes)
+        custom_msg = config.get("commit_message", "").strip()
+        if custom_msg:
+            bridge_commit_msg = f"[COPO] {custom_msg}"
+        else:
+            bridge_commit_msg = f"[COPO] Bridge update (iter {bridge_status['iteration']})"
 
-        pipeline_state["push_info"]["bridge"]["total_pushed"] = b_pushed
-        bridge_msg = f"Bridge: {b_pushed} pushed, {b_skipped} unchanged"
-        set_step("push", "done", f"{msg} | {bridge_msg} (1 commit each)")
+        set_step("push", "running", f"Target: {pushed} pushed | Pushing bridge...")
+        ok, b_committed, err = git_add_commit_push(bridge_dir, bridge_commit_msg, branch)
+        if ok:
+            b_pushed = len(b_committed)
+            pipeline_state["push_info"]["bridge"]["files_pushed"] = b_committed
+            pipeline_state["push_info"]["bridge"]["total_pushed"] = b_pushed
+            pipeline_state["push_info"]["bridge"]["total_commits"] = 1 if b_committed else 0
+        else:
+            # Bridge push failed - still continue (target was pushed)
+            print(f"[COPO] Bridge push failed: {err}")
+            b_pushed = 0
+
+        msg = f"Target: {pushed} pushed | Bridge: {b_pushed} pushed (1 commit each)"
+        set_step("push", "done", msg)
 
         # === STEP 3: DETECT (NOCOPO side) ===
         set_step("detect", "running", "Waiting for NOCOPO detection...")
