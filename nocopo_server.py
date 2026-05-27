@@ -41,6 +41,7 @@ nocopo_state = {
         "timeout": 120,
         "entry_point": "",
         "run_command": "",
+        "run_mode": "auto",       # "auto" = detect project type, "manual" = use run_command
         "commit_message": "",
     },
     "last_result": None,
@@ -232,6 +233,267 @@ def get_status_json():
 
 
 # ============================================================
+# PROJECT DETECTION & MULTI-SERVICE RUN
+# ============================================================
+def detect_project_type(repo_dir):
+    """Detect project type(s) in the repo. Returns list of detected services.
+    Each service: {"type": "python"|"react"|"node"|"springboot"|"maven"|"gradle"|"static",
+                   "dir": path, "name": str, "install_cmd": [...], "run_cmd": [...]}
+    """
+    services = []
+
+    # Check for monorepo structure (frontend/ backend/ dirs)
+    subdirs_to_check = [repo_dir]
+    for name in os.listdir(repo_dir):
+        sub = os.path.join(repo_dir, name)
+        if os.path.isdir(sub) and not name.startswith('.') and name != 'node_modules':
+            subdirs_to_check.append(sub)
+
+    for check_dir in subdirs_to_check:
+        rel_name = os.path.relpath(check_dir, repo_dir) if check_dir != repo_dir else "root"
+        detected_list = _detect_all_in_dir(check_dir, rel_name)
+        services.extend(detected_list)
+
+    # Deduplicate: if root detected AND a subdir detected same type, prefer subdir
+    if len(services) > 1:
+        non_root = [s for s in services if s["dir"] != repo_dir]
+        root_services = [s for s in services if s["dir"] == repo_dir]
+        # Keep root only if it has a unique type not in subdirs
+        subdir_types = {s["type"] for s in non_root}
+        for rs in root_services:
+            if rs["type"] not in subdir_types:
+                non_root.append(rs)
+        if non_root:
+            services = non_root
+
+    # Sort: backends first (springboot, maven, python), then frontends (react, node)
+    priority = {"springboot": 0, "maven": 1, "gradle": 2, "python": 3, "node": 4, "react": 5, "static": 6}
+    services.sort(key=lambda s: priority.get(s["type"], 99))
+
+    return services
+
+
+def _detect_all_in_dir(project_dir, name):
+    """Detect ALL project types in a directory. Returns a list (can have multiple if e.g. pom.xml + package.json coexist)."""
+    results = []
+    pom_xml = os.path.join(project_dir, "pom.xml")
+    build_gradle = os.path.join(project_dir, "build.gradle")
+    package_json = os.path.join(project_dir, "package.json")
+    requirements_txt = os.path.join(project_dir, "requirements.txt")
+    setup_py = os.path.join(project_dir, "setup.py")
+    pyproject = os.path.join(project_dir, "pyproject.toml")
+
+    # Spring Boot / Maven
+    if os.path.exists(pom_xml):
+        try:
+            with open(pom_xml, 'r', encoding='utf-8') as f:
+                pom_content = f.read()
+            if 'spring-boot' in pom_content:
+                results.append({
+                    "type": "springboot",
+                    "dir": project_dir,
+                    "name": f"{name}-backend" if name == "root" else name,
+                    "install_cmd": ["mvn", "clean", "install", "-DskipTests", "-q"] if shutil.which("mvn") else ["./mvnw", "clean", "install", "-DskipTests", "-q"],
+                    "run_cmd": ["mvn", "spring-boot:run"] if shutil.which("mvn") else ["./mvnw", "spring-boot:run"],
+                    "is_server": True,
+                    "startup_wait": 15,
+                })
+            else:
+                results.append({
+                    "type": "maven",
+                    "dir": project_dir,
+                    "name": f"{name}-backend" if name == "root" else name,
+                    "install_cmd": ["mvn", "clean", "install", "-DskipTests", "-q"] if shutil.which("mvn") else ["./mvnw", "clean", "install", "-DskipTests", "-q"],
+                    "run_cmd": ["mvn", "exec:java", "-q"] if shutil.which("mvn") else ["./mvnw", "exec:java", "-q"],
+                    "is_server": False,
+                    "startup_wait": 5,
+                })
+        except:
+            pass
+
+    # Gradle
+    if os.path.exists(build_gradle) and not any(r["type"] in ("springboot", "maven") for r in results):
+        try:
+            with open(build_gradle, 'r', encoding='utf-8') as f:
+                gradle_content = f.read()
+            if 'spring-boot' in gradle_content or 'org.springframework.boot' in gradle_content:
+                gradle_cmd = "gradle" if shutil.which("gradle") else ("./gradlew" if not sys.platform.startswith("win") else "gradlew.bat")
+                results.append({
+                    "type": "springboot",
+                    "dir": project_dir,
+                    "name": f"{name}-backend" if name == "root" else name,
+                    "install_cmd": [gradle_cmd, "build", "-x", "test", "-q"],
+                    "run_cmd": [gradle_cmd, "bootRun"],
+                    "is_server": True,
+                    "startup_wait": 15,
+                })
+        except:
+            pass
+
+    # React / Node.js (check package.json)
+    if os.path.exists(package_json):
+        try:
+            with open(package_json, 'r', encoding='utf-8') as f:
+                pkg = json.load(f)
+            deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+            scripts = pkg.get("scripts", {})
+
+            # React app
+            if "react" in deps or "react-scripts" in deps or "next" in deps or "vite" in deps:
+                if "build" in scripts:
+                    run_cmd = ["npm", "run", "build"]
+                    is_server = False
+                elif "start" in scripts:
+                    run_cmd = ["npm", "start"]
+                    is_server = True
+                else:
+                    run_cmd = ["npm", "run", "dev"]
+                    is_server = True
+                results.append({
+                    "type": "react",
+                    "dir": project_dir,
+                    "name": f"{name}-frontend" if name == "root" else name,
+                    "install_cmd": ["npm", "install"],
+                    "run_cmd": run_cmd,
+                    "is_server": is_server,
+                    "startup_wait": 10,
+                })
+            elif not results:
+                # Regular Node.js — only if no other type detected in this dir
+                run_cmd = None
+                is_server = False
+                if "start" in scripts:
+                    run_cmd = ["npm", "start"]
+                    is_server = True
+                elif "main" in pkg:
+                    run_cmd = ["node", pkg["main"]]
+                else:
+                    for candidate in ["index.js", "main.js", "app.js", "server.js"]:
+                        if os.path.exists(os.path.join(project_dir, candidate)):
+                            run_cmd = ["node", candidate]
+                            is_server = "server" in candidate or "app" in candidate
+                            break
+                if run_cmd:
+                    results.append({
+                        "type": "node",
+                        "dir": project_dir,
+                        "name": name,
+                        "install_cmd": ["npm", "install"],
+                        "run_cmd": run_cmd,
+                        "is_server": is_server,
+                        "startup_wait": 5,
+                    })
+        except:
+            pass
+
+    # Python
+    if os.path.exists(requirements_txt) or os.path.exists(setup_py) or os.path.exists(pyproject):
+        install_cmd = None
+        if os.path.exists(requirements_txt):
+            install_cmd = [sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "--quiet"]
+        elif os.path.exists(pyproject):
+            install_cmd = [sys.executable, "-m", "pip", "install", ".", "--quiet"]
+
+        run_cmd = None
+        candidates = ["main.py", "app.py", "run.py", "manage.py", "scraper.py", "index.py", "start.py"]
+        for c in candidates:
+            if os.path.exists(os.path.join(project_dir, c)):
+                run_cmd = [sys.executable, c]
+                break
+        if not run_cmd:
+            for f in os.listdir(project_dir):
+                if f.endswith(".py") and not f.startswith("__") and f != "setup.py":
+                    run_cmd = [sys.executable, f]
+                    break
+        if run_cmd:
+            results.append({
+                "type": "python",
+                "dir": project_dir,
+                "name": name,
+                "install_cmd": install_cmd,
+                "run_cmd": run_cmd,
+                "is_server": False,
+                "startup_wait": 0,
+            })
+
+    return results
+
+
+def run_service(service, timeout_sec, capture_server_output=True):
+    """Run a single service and capture output.
+    For servers (is_server=True): start, wait for startup, capture initial output, then kill.
+    For scripts: run to completion.
+    Returns (exit_code, stdout, stderr, run_status)
+    """
+    cmd = service["run_cmd"]
+    cwd = service["dir"]
+    is_server = service.get("is_server", False)
+
+    if is_server and capture_server_output:
+        # For servers: start process, wait for startup, capture output, kill
+        startup_wait = min(service.get("startup_wait", 10), timeout_sec)
+        try:
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                cwd=cwd, text=True,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0
+            )
+            time.sleep(startup_wait)
+            # Check if still running (server started successfully)
+            if proc.poll() is None:
+                # Server is running - capture what output we have
+                # Give it a moment to produce output
+                time.sleep(2)
+                proc.terminate()
+                try:
+                    stdout, stderr = proc.communicate(timeout=10)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    stdout, stderr = proc.communicate()
+                return 0, stdout, stderr + "\n[Server started successfully, terminated after capture]", "SUCCESS"
+            else:
+                # Server exited on its own (error or quick task)
+                stdout, stderr = proc.communicate()
+                exit_code = proc.returncode
+                return exit_code, stdout, stderr, "SUCCESS" if exit_code == 0 else "FAILED"
+        except Exception as e:
+            return -1, "", str(e), "ERROR"
+    else:
+        # For scripts: run to completion
+        try:
+            proc = subprocess.run(
+                cmd, capture_output=True, text=True,
+                timeout=timeout_sec, cwd=cwd
+            )
+            return proc.returncode, proc.stdout, proc.stderr, "SUCCESS" if proc.returncode == 0 else "FAILED"
+        except subprocess.TimeoutExpired:
+            return -1, "", f"TIMEOUT after {timeout_sec}s", "TIMEOUT"
+        except Exception as e:
+            return -1, "", str(e), "ERROR"
+
+
+def install_service(service):
+    """Install dependencies for a service. Returns (success, message)."""
+    if not service.get("install_cmd"):
+        return True, "No install needed"
+    try:
+        result = subprocess.run(
+            service["install_cmd"],
+            capture_output=True, text=True,
+            timeout=300, cwd=service["dir"],
+            shell=(sys.platform == "win32" and service["install_cmd"][0] in ["npm", "npx"])
+        )
+        if result.returncode == 0:
+            return True, f"{service['type']} deps installed"
+        else:
+            return False, f"Install failed: {result.stderr[:200]}"
+    except subprocess.TimeoutExpired:
+        return False, "Install timeout (300s)"
+    except Exception as e:
+        return False, f"Install error: {str(e)}"
+
+
+# ============================================================
 # DETECTION LOGIC
 # ============================================================
 def update_bridge_progress(step_id, message=""):
@@ -326,6 +588,18 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
     reset_steps()
 
     try:
+        # Check status.json for COPO-provided run config (run_mode, run_command, entry_point)
+        status = get_status_json()
+        if status and status.get("pushed_by") == "copo":
+            if status.get("run_mode"):
+                config["run_mode"] = status["run_mode"]
+            if status.get("run_command"):
+                config["run_command"] = status["run_command"]
+            if status.get("entry_point"):
+                config["entry_point"] = status["entry_point"]
+            if status.get("target_repo"):
+                config["target_repo"] = status["target_repo"]
+
         # DETECT
         set_step("detect", "done", trigger_reason)
         update_bridge_progress("detect", trigger_reason)
@@ -371,32 +645,174 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         # INSTALL
         set_step("install", "running", "Checking dependencies...")
         update_bridge_progress("install", "Installing dependencies...")
-        req_file = os.path.join(repo_dir, "requirements.txt")
-        if os.path.exists(req_file):
-            subprocess.run(
-                [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
-                capture_output=True, text=True, timeout=120, cwd=repo_dir
-            )
-            set_step("install", "done", "Requirements installed")
+
+        run_mode = config.get("run_mode", "auto")
+        run_cmd = config["run_command"].strip()
+        entry = config["entry_point"].strip()
+        timeout_sec = config["timeout"]
+
+        if run_mode == "manual" and run_cmd:
+            # Manual mode: just install based on what's available
+            req_file = os.path.join(repo_dir, "requirements.txt")
+            pkg_json = os.path.join(repo_dir, "package.json")
+            pom_xml = os.path.join(repo_dir, "pom.xml")
+            if os.path.exists(req_file):
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
+                    capture_output=True, text=True, timeout=180, cwd=repo_dir
+                )
+                set_step("install", "done", "Python requirements installed")
+            elif os.path.exists(pkg_json):
+                subprocess.run(
+                    ["npm", "install"], capture_output=True, text=True,
+                    timeout=180, cwd=repo_dir, shell=(sys.platform == "win32")
+                )
+                set_step("install", "done", "npm packages installed")
+            elif os.path.exists(pom_xml):
+                mvn = "mvn" if shutil.which("mvn") else "./mvnw"
+                subprocess.run(
+                    [mvn, "clean", "install", "-DskipTests", "-q"],
+                    capture_output=True, text=True, timeout=300, cwd=repo_dir
+                )
+                set_step("install", "done", "Maven dependencies installed")
+            else:
+                set_step("install", "done", "No dependencies found (skipped)")
+            detected_services = []
         else:
-            set_step("install", "done", "No requirements.txt (skipped)")
+            # Auto mode: detect project structure
+            detected_services = detect_project_type(repo_dir)
+            if detected_services:
+                install_msgs = []
+                for svc in detected_services:
+                    set_step("install", "running", f"Installing: {svc['name']} ({svc['type']})...")
+                    update_bridge_progress("install", f"Installing {svc['name']} ({svc['type']})...")
+                    ok, msg = install_service(svc)
+                    install_msgs.append(f"{svc['name']}({svc['type']}): {msg}")
+                    if not ok:
+                        set_step("install", "error", f"Install failed for {svc['name']}: {msg}")
+                        return {"success": False, "error": f"Install failed: {msg}"}
+                set_step("install", "done", " | ".join(install_msgs))
+            else:
+                # Fallback: try basic install
+                req_file = os.path.join(repo_dir, "requirements.txt")
+                if os.path.exists(req_file):
+                    subprocess.run(
+                        [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
+                        capture_output=True, text=True, timeout=180, cwd=repo_dir
+                    )
+                    set_step("install", "done", "Python requirements installed")
+                else:
+                    set_step("install", "done", "No dependencies detected (skipped)")
 
         # RUN
         set_step("run", "running", "Executing code...")
         update_bridge_progress("run", "Running code...")
-        run_cmd = config["run_command"]
-        entry = config["entry_point"]
-        timeout_sec = config["timeout"]
 
-        if run_cmd:
-            cmd_parts = run_cmd.split()
-        elif entry:
+        all_outputs = []
+        exit_code = 0
+        run_status = "SUCCESS"
+
+        if run_mode == "manual" and run_cmd:
+            # Manual mode: run command(s) specified by user
+            # Support multiple commands separated by && or newlines
+            commands = []
+            for line in run_cmd.replace("&&", "\n").split("\n"):
+                line = line.strip()
+                if line:
+                    commands.append(line)
+
+            for i, cmd_str in enumerate(commands):
+                cmd_label = cmd_str[:60] + "..." if len(cmd_str) > 60 else cmd_str
+                set_step("run", "running", f"[{i+1}/{len(commands)}] {cmd_label}")
+                update_bridge_progress("run", f"Running command {i+1}/{len(commands)}: {cmd_label}")
+
+                cmd_parts = cmd_str.split()
+                try:
+                    proc = subprocess.run(
+                        cmd_parts, capture_output=True, text=True,
+                        timeout=timeout_sec, cwd=repo_dir,
+                        shell=(sys.platform == "win32" and cmd_parts[0] in ["npm", "npx", "mvn", "gradle", "gradlew.bat"])
+                    )
+                    all_outputs.append(f"--- Command: {cmd_str} ---")
+                    if proc.stdout:
+                        all_outputs.append(proc.stdout)
+                    if proc.stderr:
+                        all_outputs.append(f"[STDERR] {proc.stderr}")
+                    all_outputs.append(f"--- Exit: {proc.returncode} ---\n")
+                    if proc.returncode != 0:
+                        exit_code = proc.returncode
+                        run_status = "FAILED"
+                except subprocess.TimeoutExpired:
+                    all_outputs.append(f"--- Command: {cmd_str} ---\n[TIMEOUT after {timeout_sec}s]\n")
+                    exit_code = -1
+                    run_status = "TIMEOUT"
+                    break
+                except Exception as e:
+                    all_outputs.append(f"--- Command: {cmd_str} ---\n[ERROR] {str(e)}\n")
+                    exit_code = -1
+                    run_status = "ERROR"
+                    break
+
+        elif run_mode == "manual" and entry:
+            # Manual mode with entry point only
             entry_path = os.path.join(repo_dir, entry)
             if not os.path.exists(entry_path):
                 set_step("run", "error", f"Entry not found: {entry}")
                 return {"success": False, "error": f"Entry not found: {entry}"}
-            cmd_parts = [sys.executable, entry_path] if entry.endswith(".py") else [entry_path]
+            if entry.endswith(".py"):
+                cmd_parts = [sys.executable, entry_path]
+            elif entry.endswith(".js"):
+                cmd_parts = ["node", entry_path]
+            else:
+                cmd_parts = [entry_path]
+
+            set_step("run", "running", f"Running: {' '.join(os.path.basename(c) for c in cmd_parts)}")
+            try:
+                proc = subprocess.run(
+                    cmd_parts, capture_output=True, text=True,
+                    timeout=timeout_sec, cwd=repo_dir
+                )
+                exit_code = proc.returncode
+                if proc.stdout:
+                    all_outputs.append(proc.stdout)
+                if proc.stderr:
+                    all_outputs.append(f"[STDERR] {proc.stderr}")
+                run_status = "SUCCESS" if exit_code == 0 else "FAILED"
+            except subprocess.TimeoutExpired:
+                exit_code = -1
+                all_outputs.append(f"TIMEOUT after {timeout_sec}s")
+                run_status = "TIMEOUT"
+            except Exception as e:
+                exit_code = -1
+                all_outputs.append(str(e))
+                run_status = "ERROR"
+
+        elif detected_services:
+            # Auto mode: run detected services
+            svc_info = ", ".join(f"{s['name']}({s['type']})" for s in detected_services)
+            set_step("run", "running", f"Auto-running: {svc_info}")
+            update_bridge_progress("run", f"Auto-running: {svc_info}")
+
+            for i, svc in enumerate(detected_services):
+                svc_label = f"{svc['name']} ({svc['type']})"
+                set_step("run", "running", f"[{i+1}/{len(detected_services)}] Running {svc_label}...")
+                update_bridge_progress("run", f"Running {svc_label}...")
+
+                svc_exit, svc_stdout, svc_stderr, svc_status = run_service(svc, timeout_sec)
+                all_outputs.append(f"=== Service: {svc_label} ===")
+                all_outputs.append(f"=== Command: {' '.join(svc['run_cmd'])} ===")
+                if svc_stdout:
+                    all_outputs.append(svc_stdout)
+                if svc_stderr:
+                    all_outputs.append(f"[STDERR] {svc_stderr}")
+                all_outputs.append(f"=== Exit: {svc_exit} ({svc_status}) ===\n")
+
+                if svc_exit != 0:
+                    exit_code = svc_exit
+                    run_status = svc_status
+
         else:
+            # Fallback: try to find and run something
             candidates = ["main.py", "app.py", "run.py", "scraper.py", "index.py"]
             entry_path = None
             for c in candidates:
@@ -410,31 +826,33 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                         entry_path = os.path.join(repo_dir, f)
                         break
             if not entry_path:
-                set_step("run", "error", "No entry point found")
-                return {"success": False, "error": "No entry point"}
+                set_step("run", "error", "No entry point or project detected")
+                return {"success": False, "error": "No entry point found. Set run_mode to 'manual' and provide a run_command."}
+
             cmd_parts = [sys.executable, entry_path]
+            set_step("run", "running", f"Running: {os.path.basename(entry_path)}")
+            try:
+                proc = subprocess.run(
+                    cmd_parts, capture_output=True, text=True,
+                    timeout=timeout_sec, cwd=repo_dir
+                )
+                exit_code = proc.returncode
+                if proc.stdout:
+                    all_outputs.append(proc.stdout)
+                if proc.stderr:
+                    all_outputs.append(f"[STDERR] {proc.stderr}")
+                run_status = "SUCCESS" if exit_code == 0 else "FAILED"
+            except subprocess.TimeoutExpired:
+                exit_code = -1
+                all_outputs.append(f"TIMEOUT after {timeout_sec}s")
+                run_status = "TIMEOUT"
+            except Exception as e:
+                exit_code = -1
+                all_outputs.append(str(e))
+                run_status = "ERROR"
 
-        set_step("run", "running", f"Running: {' '.join(os.path.basename(c) for c in cmd_parts)}")
-
-        try:
-            proc = subprocess.run(
-                cmd_parts, capture_output=True, text=True,
-                timeout=timeout_sec, cwd=repo_dir
-            )
-            exit_code = proc.returncode
-            stdout = proc.stdout
-            stderr = proc.stderr
-            run_status = "SUCCESS" if exit_code == 0 else "FAILED"
-        except subprocess.TimeoutExpired:
-            exit_code = -1
-            stdout = ""
-            stderr = f"TIMEOUT after {timeout_sec}s"
-            run_status = "TIMEOUT"
-        except Exception as e:
-            exit_code = -1
-            stdout = ""
-            stderr = str(e)
-            run_status = "ERROR"
+        stdout = "\n".join(all_outputs)
+        stderr = ""  # Already merged into stdout above
 
         set_step("run", "done" if exit_code == 0 else "error",
                 f"Exit code: {exit_code} ({run_status})")
@@ -444,11 +862,13 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         update_bridge_progress("capture", "Capturing output...")
         output_parts = [
             f"=== Target: {target_repo} ===",
-            f"=== Command: {' '.join(cmd_parts)} ===",
+            f"=== Run Mode: {run_mode} ===",
             f"=== Timestamp: {datetime.now().isoformat()} ===",
         ]
+        if detected_services:
+            output_parts.append(f"=== Detected: {', '.join(s['name']+'('+s['type']+')' for s in detected_services)} ===")
         if stdout:
-            output_parts.append("\n=== STDOUT ===")
+            output_parts.append("\n=== OUTPUT ===")
             output_parts.append(stdout)
         if stderr:
             output_parts.append("\n=== STDERR ===")

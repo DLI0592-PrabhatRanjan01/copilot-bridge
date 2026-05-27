@@ -1,9 +1,12 @@
 {
-  "state": "output_ready",
-  "pushed_by": "nocopo",
+  "state": "code_ready",
+  "pushed_by": "copo",
   "target_repo": "web-scraper",
   "iteration": 1,
-  "exit_code": 2,
-  "timestamp": "2026-05-27T21:50:50.629777",
-  "message": "Output ready (FAILED)"
+  "timestamp": "2026-05-27T22:46:40.908069",
+  "files_pushed": 1,
+  "entry_point": "main.py",
+  "run_command": "python main.py --arg",
+  "run_mode": "auto",
+  "message": "Code pushed from web-scraper"
 }

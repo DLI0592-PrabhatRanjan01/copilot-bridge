@@ -160,9 +160,17 @@
                         <div class="hint">Leave empty to auto-detect (main.py, app.py, etc.)</div>
                     </div>
                     <div class="config-group">
-                        <label>Custom Run Command (optional)</label>
-                        <input type="text" id="cfgRunCommand" placeholder="python main.py --arg" />
-                        <div class="hint">Overrides entry point if set</div>
+                        <label>Run Mode</label>
+                        <select id="cfgRunMode" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:8px 10px;border-radius:6px;font-size:13px;">
+                            <option value="auto">Auto-Detect (detect project type &amp; run)</option>
+                            <option value="manual">Manual (use custom commands below)</option>
+                        </select>
+                        <div class="hint">Auto: detects React, Spring Boot, Python, Node.js. Manual: runs your command(s).</div>
+                    </div>
+                    <div class="config-group">
+                        <label>Custom Run Command(s) — for Manual mode</label>
+                        <textarea id="cfgRunCommand" rows="3" placeholder="python main.py --arg&#10;npm run build&#10;mvn spring-boot:run" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:8px 10px;border-radius:6px;font-size:13px;font-family:'Cascadia Code',monospace;resize:vertical;"></textarea>
+                        <div class="hint">One command per line (or use &amp;&amp; to chain). Overrides auto-detect.</div>
                     </div>
                     <div class="config-group">
                         <label>Poll Interval (seconds)</label>
@@ -315,6 +323,7 @@ function getConfigFromUI() {
         branch: document.getElementById('cfgBranch').value.trim() || 'main',
         entry_point: document.getElementById('cfgEntryPoint').value.trim(),
         run_command: document.getElementById('cfgRunCommand').value.trim(),
+        run_mode: document.getElementById('cfgRunMode').value || 'auto',
         poll_interval: parseInt(document.getElementById('cfgPollInterval').value) || 10,
         timeout: parseInt(document.getElementById('cfgTimeout').value) || 120,
         commit_message: document.getElementById('cfgCommitMessage').value.trim(),
@@ -329,6 +338,7 @@ function loadConfigToUI(cfg) {
     document.getElementById('cfgBranch').value = cfg.branch || 'main';
     document.getElementById('cfgEntryPoint').value = cfg.entry_point || '';
     document.getElementById('cfgRunCommand').value = cfg.run_command || '';
+    document.getElementById('cfgRunMode').value = cfg.run_mode || 'auto';
     document.getElementById('cfgPollInterval').value = cfg.poll_interval || 10;
     document.getElementById('cfgTimeout').value = cfg.timeout || 120;
     document.getElementById('cfgCommitMessage').value = cfg.commit_message || '';

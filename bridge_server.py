@@ -36,6 +36,7 @@ pipeline_state = {
         "branch": "main",
         "entry_point": "",      # e.g. main.py (auto-detect if empty)
         "run_command": "",      # Custom run command (optional)
+        "run_mode": "auto",    # "auto" = detect project type, "manual" = use run_command
         "commit_message": "",   # Custom commit message (auto if empty)
         "save_output_locally": True,
         "output_save_path": "", # Where to save output on COPO side
@@ -536,6 +537,7 @@ def run_pipeline():
             "files_pushed": pushed,
             "entry_point": config["entry_point"],
             "run_command": config["run_command"],
+            "run_mode": config.get("run_mode", "auto"),
             "message": f"Code pushed from {os.path.basename(local_path)}"
         }
         status_path = os.path.join(bridge_dir, "status.json")
