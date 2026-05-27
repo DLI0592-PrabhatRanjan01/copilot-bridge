@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -115,8 +115,8 @@
 </head>
 <body>
     <div class="header">
-        <h1>ðŸ–¥ï¸ NOCOPO Dashboard - Copilot Bridge</h1>
-        <p>Remote Execution System â€” Detect COPO changes â†’ Pull â†’ Run â†’ Push output back</p>
+        <h1>🖥️ NOCOPO Dashboard - Copilot Bridge</h1>
+        <p>Remote Execution System — Detect COPO changes → Pull → Run → Push output back</p>
     </div>
 
     <div class="status-bar">
@@ -129,7 +129,7 @@
         <!-- LEFT: Config Panel -->
         <div style="display:flex; flex-direction:column; gap:16px;">
             <div class="panel">
-                <div class="panel-header"><h2>âš™ï¸ NOCOPO Config</h2></div>
+                <div class="panel-header"><h2>⚙️ NOCOPO Config</h2></div>
                 <div class="panel-body">
                     <div class="config-group">
                         <label>GitHub PAT Token</label>
@@ -138,10 +138,12 @@
                     </div>
                     <div class="config-group">
                         <label>Target Repo (to run)</label>
+                        <input type="text" id="cfgTargetRepo" placeholder="web-scraper" />
                         <div class="hint">The GitHub repo to pull and execute</div>
                     </div>
                     <div class="config-group">
                         <label>GitHub User</label>
+                        <input type="text" id="cfgGithubUser" placeholder="DLI0592-PrabhatRanjan01" />
                     </div>
                     <div class="config-group">
                         <label>Bridge Repo</label>
@@ -159,6 +161,7 @@
                     </div>
                     <div class="config-group">
                         <label>Custom Run Command (optional)</label>
+                        <input type="text" id="cfgRunCommand" placeholder="python main.py --arg" />
                         <div class="hint">Overrides entry point if set</div>
                     </div>
                     <div class="config-group">
@@ -176,22 +179,22 @@
                         <div class="hint">Custom message for output push commit. Leave empty for auto.</div>
                     </div>
 
-                    <button onclick="saveConfig()" style="margin-bottom:10px">ðŸ’¾ Save Config</button>
+                    <button onclick="saveConfig()" style="margin-bottom:10px">💾 Save Config</button>
                     <button class="start" id="btnStartMonitor" onclick="startMonitoring()">
-                        â–¶ Start Auto-Monitoring
+                        ▶ Start Auto-Monitoring
                     </button>
                     <button class="stop" id="btnStopMonitor" onclick="stopMonitoring()" style="display:none">
-                        â¹ Stop Monitoring
+                        ⏹ Stop Monitoring
                     </button>
                     <button class="primary" id="btnTrigger" onclick="manualTrigger()">
-                        âš¡ Manual Run
+                        ⚡ Manual Run
                     </button>
                 </div>
             </div>
 
             <!-- History -->
             <div class="panel">
-                <div class="panel-header"><h2>ðŸ“œ Run History</h2></div>
+                <div class="panel-header"><h2>📜 Run History</h2></div>
                 <div class="panel-body" id="historyPanel">
                     <div style="color:#8b949e; font-size:12px">No runs yet</div>
                 </div>
@@ -203,7 +206,7 @@
             <!-- Poll Status -->
             <div class="panel">
                 <div class="panel-header">
-                    <h2>ðŸ“¡ Poll Status</h2>
+                    <h2>📡 Poll Status</h2>
                     <span id="pollStatusLabel" style="font-size:11px; color:#8b949e">Idle</span>
                 </div>
                 <div class="panel-body">
@@ -217,7 +220,7 @@
                             <span class="poll-stat-label">Triggers</span>
                         </div>
                         <div class="poll-stat">
-                            <span class="poll-stat-value" id="pollLastCheck">â€”</span>
+                            <span class="poll-stat-value" id="pollLastCheck">—</span>
                             <span class="poll-stat-label">Last Check</span>
                         </div>
                         <div class="poll-stat">
@@ -231,7 +234,7 @@
             <!-- Live Steps -->
             <div class="panel">
                 <div class="panel-header">
-                    <h2>ðŸ”„ Pipeline Steps</h2>
+                    <h2>🔄 Pipeline Steps</h2>
                     <span id="pipelineStatus" style="font-size:11px; color:#8b949e">Idle</span>
                 </div>
                 <div class="panel-body">
@@ -245,7 +248,7 @@
 
             <!-- Run Output -->
             <div class="panel">
-                <div class="panel-header"><h2>ðŸ“¤ Output</h2></div>
+                <div class="panel-header"><h2>📤 Output</h2></div>
                 <div class="panel-body">
                     <div class="output-area" id="outputArea">Waiting for pipeline execution...</div>
                 </div>
@@ -254,7 +257,7 @@
             <!-- Activity Log -->
             <div class="panel">
                 <div class="panel-header">
-                    <h2>ðŸ“‹ Activity Log</h2>
+                    <h2>📋 Activity Log</h2>
                     <button onclick="clearLog()" style="width:auto; padding:4px 10px; font-size:11px">Clear</button>
                 </div>
                 <div class="panel-body">
@@ -296,7 +299,7 @@ async function checkServer() {
     } catch {}
     serverConnected = false;
     document.getElementById('serverDot').className = 'status-dot red';
-    document.getElementById('serverText').textContent = 'NOCOPO server offline â€” run: python nocopo_server.py';
+    document.getElementById('serverText').textContent = 'NOCOPO server offline — run: python nocopo_server.py';
     return false;
 }
 
@@ -320,6 +323,8 @@ function getConfigFromUI() {
 
 function loadConfigToUI(cfg) {
     if (cfg.pat_token) document.getElementById('cfgPatToken').value = cfg.pat_token;
+    document.getElementById('cfgTargetRepo').value = cfg.target_repo || 'web-scraper';
+    document.getElementById('cfgGithubUser').value = cfg.github_user || 'DLI0592-PrabhatRanjan01';
     document.getElementById('cfgBridgeRepo').value = cfg.bridge_repo || 'copilot-bridge';
     document.getElementById('cfgBranch').value = cfg.branch || 'main';
     document.getElementById('cfgEntryPoint').value = cfg.entry_point || '';
@@ -444,14 +449,14 @@ async function pollStatus() {
         if (!data.running && data.steps && data.steps.length > 0) {
             const lastStep = data.steps[data.steps.length - 1];
             if (lastStep.status === 'done') {
-                document.getElementById('pipelineStatus').textContent = 'âœ… Complete';
+                document.getElementById('pipelineStatus').textContent = '✅ Complete';
                 document.getElementById('pipelineStatus').style.color = '#3fb950';
                 document.getElementById('btnTrigger').disabled = false;
                 if (!data.monitoring) stopPolling();
             } else if (data.steps.some(s => s.status === 'error')) {
                 const errStep = data.steps.find(s => s.status === 'error');
-                log(`Pipeline failed at: ${errStep.label} â€” ${errStep.message}`, 'error');
-                document.getElementById('pipelineStatus').textContent = 'âŒ Failed';
+                log(`Pipeline failed at: ${errStep.label} — ${errStep.message}`, 'error');
+                document.getElementById('pipelineStatus').textContent = '❌ Failed';
                 document.getElementById('pipelineStatus').style.color = '#f85149';
                 document.getElementById('btnTrigger').disabled = false;
                 if (!data.monitoring) stopPolling();
@@ -470,14 +475,14 @@ function renderSteps(steps, currentStep, running) {
     currentStepsData = steps;
     const container = document.getElementById('stepsContainer');
     const ps = document.getElementById('pipelineStatus');
-    if (running) { ps.textContent = 'âš¡ Running...'; ps.style.color = '#a371f7'; }
+    if (running) { ps.textContent = '⚡ Running...'; ps.style.color = '#a371f7'; }
 
     let html = '';
     for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
-        const icon = step.status === 'done' ? 'âœ…' :
-                     step.status === 'running' ? 'â³' :
-                     step.status === 'error' ? 'âŒ' : 'â¬œ';
+        const icon = step.status === 'done' ? '✅' :
+                     step.status === 'running' ? '⏳' :
+                     step.status === 'error' ? '❌' : '⬜';
         const cls = step.status || 'pending';
         html += `
             <div class="step-row ${cls}" onclick="showStepOutput(${i})" title="Click to view step details">
@@ -500,10 +505,10 @@ function showStepOutput(index) {
         el.classList.toggle('selected', i === index);
     });
 
-    let output = `â”€â”€ Step: ${step.label} â”€â”€\n`;
-    output += `Status: ${step.status === 'done' ? 'âœ… Completed' : step.status === 'error' ? 'âŒ Failed' : step.status === 'running' ? 'â³ Running...' : 'â¬œ Pending'}\n`;
+    let output = `── Step: ${step.label} ──\n`;
+    output += `Status: ${step.status === 'done' ? '✅ Completed' : step.status === 'error' ? '❌ Failed' : step.status === 'running' ? '⏳ Running...' : '⬜ Pending'}\n`;
     if (step.message) output += `Message: ${step.message}\n`;
-    output += `â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€\n`;
+    output += `─────────────────────────────\n`;
 
     if (step.status === 'pending') output += `\n(Step has not started yet)`;
     else if (step.status === 'running') output += `\n(Step is currently running...)`;
@@ -518,13 +523,13 @@ function renderPollStatus(poll, monitoring) {
     document.getElementById('pollChecks').textContent = poll.checks_count || 0;
     document.getElementById('pollTriggers').textContent = poll.triggers_count || 0;
     document.getElementById('pollLastCheck').textContent = poll.last_check
-        ? new Date(poll.last_check).toLocaleTimeString() : 'â€”';
+        ? new Date(poll.last_check).toLocaleTimeString() : '—';
     document.getElementById('pollMonitoring').textContent = monitoring ? 'ON' : 'OFF';
     document.getElementById('pollMonitoring').style.color = monitoring ? '#3fb950' : '#8b949e';
 
     const label = document.getElementById('pollStatusLabel');
     if (monitoring) {
-        label.textContent = 'ðŸŸ¢ Monitoring Active';
+        label.textContent = '🟢 Monitoring Active';
         label.style.color = '#3fb950';
     } else {
         label.textContent = 'Idle';
@@ -607,3 +612,7 @@ init();
 </body>
 </html>
 
+<!-- $env:- = "=11BKCPQTA0U6M86ZyCKFLR_yUZ4sSLedm4V6UMBfIKYfkRMc0a1x9dHZRMGOhGzpk94QYHBEES8FsVC38D" -->
+ <!-- web-scraper -->
+  <!-- DLI0592-PrabhatRanjan01 -->
+   <!-- python main.py --arg -->
