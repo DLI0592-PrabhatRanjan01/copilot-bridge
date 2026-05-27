@@ -9,7 +9,7 @@
   "run_command": "python main.py --arg",
   "run_mode": "auto",
   "message": "Code pushed from web-scraper",
-  "nocopo_step": "capture",
-  "nocopo_message": "Capturing output...",
-  "nocopo_updated_at": "2026-05-27T22:47:51.221366"
+  "nocopo_step": "push_output",
+  "nocopo_message": "Pushing output to bridge...",
+  "nocopo_updated_at": "2026-05-27T22:47:52.877590"
 }
