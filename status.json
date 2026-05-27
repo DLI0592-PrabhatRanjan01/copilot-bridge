@@ -1,15 +1,9 @@
 {
-  "state": "code_ready",
-  "pushed_by": "copo",
+  "state": "output_ready",
+  "pushed_by": "nocopo",
   "target_repo": "web-scraper",
   "iteration": 1,
-  "timestamp": "2026-05-27T22:46:40.908069",
-  "files_pushed": 1,
-  "entry_point": "main.py",
-  "run_command": "python main.py --arg",
-  "run_mode": "auto",
-  "message": "Code pushed from web-scraper",
-  "nocopo_step": "push_output",
-  "nocopo_message": "Pushing output to bridge...",
-  "nocopo_updated_at": "2026-05-27T22:47:52.877590"
+  "exit_code": 2,
+  "timestamp": "2026-05-27T22:47:54.381716",
+  "message": "Output ready (FAILED)"
 }

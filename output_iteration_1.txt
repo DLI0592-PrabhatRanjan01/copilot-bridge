@@ -1,9 +1,23 @@
 === Target: web-scraper ===
-=== Command: python main.py --arg ===
-=== Timestamp: 2026-05-27T21:50:50.629777 ===
+=== Run Mode: auto ===
+=== Timestamp: 2026-05-27T22:47:52.538103 ===
+=== Detected: root(python) ===
 
-=== STDERR ===
-python: can't open file 'C:\\Users\\prabh\\AppData\\Local\\Temp\\nocopo_web-scraper\\main.py': [Errno 2] No such file or directory
+=== OUTPUT ===
+=== Service: root (python) ===
+=== Command: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe scraper.py ===
+[STDERR] usage: scraper.py [-h] [--auto] [--discover-api] [--crawl-api] [--follow-api]
+                  [--click-all] [--crawl] [--render] [--html] [--css] [--js]
+                  [--forms] [--media] [--api] [--all] [--metadata] [--headers]
+                  [--method {GET,POST,PUT,DELETE,PATCH}] [--body BODY]
+                  [--header HEADER] [--depth DEPTH] [--max-pages MAX_PAGES]
+                  [--max-clicks MAX_CLICKS] [--workers WORKERS]
+                  [--delay DELAY] [--no-verify-ssl] [--paginate]
+                  [--output OUTPUT] [--format {json,csv,both}]
+                  url
+scraper.py: error: the following arguments are required: url
+
+=== Exit: 2 (FAILED) ===
 
 
 === EXIT CODE: 2 ===
