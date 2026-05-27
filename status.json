@@ -8,5 +8,8 @@
   "entry_point": "main.py",
   "run_command": "python main.py --arg",
   "run_mode": "auto",
-  "message": "Code pushed from web-scraper"
+  "message": "Code pushed from web-scraper",
+  "nocopo_step": "detect",
+  "nocopo_message": "COPO trigger: iteration 1",
+  "nocopo_updated_at": "2026-05-27T22:47:26.220854"
 }
