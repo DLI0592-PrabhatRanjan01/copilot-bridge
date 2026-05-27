@@ -10,6 +10,6 @@
   "run_mode": "auto",
   "message": "Code pushed from web-scraper",
   "nocopo_step": "install",
-  "nocopo_message": "Installing dependencies...",
-  "nocopo_updated_at": "2026-05-27T22:47:31.853205"
+  "nocopo_message": "Installing root (python)...",
+  "nocopo_updated_at": "2026-05-27T22:47:34.140936"
 }
