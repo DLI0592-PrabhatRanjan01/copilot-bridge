@@ -1,20 +1,10 @@
 === Target: web-scraper ===
 === Command: python main.py --arg ===
-=== Timestamp: 2026-05-26T19:33:12.967901 ===
+=== Timestamp: 2026-05-27T09:34:14.779971 ===
 
-=== STDOUT ===
-==================================================
-  WEB-SCRAPER TEST RUN v3
-  Time: 2026-05-26 19:33:11
-==================================================
-[TEST] httpbin.org failed: HTTPSConnectionPool(host='httpbin.org', port=443): Max retries exceeded with url: /get (Caused by SSLError(SSLError(1, '[SSL: WRONG_VERSION_NUMBER] wrong version number (_ssl.c:1081)')))
-[TEST] BeautifulSoup: imported OK
-
-[TEST] Scraper module check...
-[TEST] DynamicScraper: imported OK
-
-[DONE] Test complete - NOCOPO is working!
+=== STDERR ===
+python: can't open file 'C:\\Users\\prabh\\AppData\\Local\\Temp\\nocopo_web-scraper\\main.py': [Errno 2] No such file or directory
 
 
-=== EXIT CODE: 0 ===
-=== STATUS: SUCCESS ===
+=== EXIT CODE: 2 ===
+=== STATUS: FAILED ===
