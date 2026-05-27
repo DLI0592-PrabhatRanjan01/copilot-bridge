@@ -9,7 +9,7 @@
   "run_command": "python main.py --arg",
   "run_mode": "auto",
   "message": "Code pushed from web-scraper",
-  "nocopo_step": "install",
-  "nocopo_message": "Installing root (python)...",
-  "nocopo_updated_at": "2026-05-27T22:47:34.140936"
+  "nocopo_step": "run",
+  "nocopo_message": "Running code...",
+  "nocopo_updated_at": "2026-05-27T22:47:42.843538"
 }
