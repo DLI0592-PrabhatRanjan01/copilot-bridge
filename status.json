@@ -1,9 +1,14 @@
 {
-  "state": "output_ready",
-  "pushed_by": "nocopo",
-  "target_repo": "web-scraper",
+  "state": "code_ready",
+  "pushed_by": "copo",
+  "target_repo": "naukri-automation",
   "iteration": 1,
-  "exit_code": 2,
-  "timestamp": "2026-05-27T22:47:54.381716",
-  "message": "Output ready (FAILED)"
+  "timestamp": "2026-05-28T09:12:52.437623",
+  "files_pushed": 0,
+  "entry_point": "",
+  "run_command": "cd c:\\Users\\prabh\\naukri-automation\\backend\nmvn spring-boot:run\ncd c:\\Users\\prabh\\naukri-automation\\frontend\\src\nnpm start",
+  "run_mode": "auto",
+  "request_type": "output",
+  "modules_command": "",
+  "message": "Code pushed from naukri-automation"
 }

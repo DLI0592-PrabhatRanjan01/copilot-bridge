@@ -185,6 +185,19 @@
                         <div class="hint">Auto: detects project type and runs accordingly. Manual: runs your command(s).</div>
                     </div>
                     <div class="config-group">
+                        <label>🎯 What do you want from NOCOPO?</label>
+                        <select id="cfgRequestType" style="width:100%;background:#0d1117;border:1px solid #58a6ff;color:#c9d1d9;padding:8px 10px;border-radius:6px;font-size:13px;">
+                            <option value="output">📤 Output — Run code & return output</option>
+                            <option value="modules">📦 Modules — Install deps & push back to repo</option>
+                        </select>
+                        <div class="hint">Output: NOCOPO runs your code and pushes output.txt. Modules: NOCOPO installs dependencies (npm i, pip install, mvn install) and pushes them back to target repo for COPO to pull.</div>
+                    </div>
+                    <div class="config-group" id="modulesCommandGroup" style="display:none;">
+                        <label>Install Command (for Modules mode)</label>
+                        <input type="text" id="cfgModulesCommand" placeholder="npm install (auto-detect if empty)" />
+                        <div class="hint">Custom install command. Leave empty to auto-detect (npm i / pip install / mvn install).</div>
+                    </div>
+                    <div class="config-group">
                         <label>Custom Run Command(s)</label>
                         <textarea id="cfgRunCommand" rows="2" placeholder="python main.py --arg&#10;npm run build" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:8px 10px;border-radius:6px;font-size:13px;font-family:'Cascadia Code',monospace;resize:vertical;"></textarea>
                         <div class="hint">One command per line or use &amp;&amp; to chain. Used in Manual mode.</div>
@@ -326,6 +339,8 @@ function getConfigFromUI() {
         entry_point: document.getElementById('cfgEntryPoint').value.trim(),
         run_command: document.getElementById('cfgRunCommand').value.trim(),
         run_mode: document.getElementById('cfgRunMode').value || 'auto',
+        request_type: document.getElementById('cfgRequestType').value || 'output',
+        modules_command: document.getElementById('cfgModulesCommand').value.trim(),
         timeout: parseInt(document.getElementById('cfgTimeout').value) || 120,
         commit_message: document.getElementById('cfgCommitMessage').value.trim(),
         mode: document.getElementById('cfgMode').value || 'single',
@@ -343,12 +358,21 @@ function loadConfigToUI(cfg) {
     document.getElementById('cfgEntryPoint').value = cfg.entry_point || '';
     document.getElementById('cfgRunCommand').value = cfg.run_command || '';
     document.getElementById('cfgRunMode').value = cfg.run_mode || 'auto';
+    document.getElementById('cfgRequestType').value = cfg.request_type || 'output';
+    document.getElementById('cfgModulesCommand').value = cfg.modules_command || '';
     document.getElementById('cfgTimeout').value = cfg.timeout || 120;
     document.getElementById('cfgCommitMessage').value = cfg.commit_message || '';
     document.getElementById('cfgMode').value = cfg.mode || 'single';
     document.getElementById('cfgSaveLocal').checked = cfg.save_output_locally !== false;
     document.getElementById('cfgOutputPath').value = cfg.output_save_path || '';
+    toggleModulesCommand();
 }
+
+function toggleModulesCommand() {
+    const rt = document.getElementById('cfgRequestType').value;
+    document.getElementById('modulesCommandGroup').style.display = rt === 'modules' ? 'block' : 'none';
+}
+document.getElementById('cfgRequestType').addEventListener('change', toggleModulesCommand);
 
 async function saveConfig() {
     const cfg = getConfigFromUI();

@@ -272,6 +272,34 @@
                     <div class="log-area" id="logArea"></div>
                 </div>
             </div>
+
+            <!-- Custom Command Runner -->
+            <div class="panel" style="border-color:#a371f7;">
+                <div class="panel-header" style="background:#8957e510;">
+                    <h2>🚀 Custom Command Runner</h2>
+                    <span id="cmdStatus" style="font-size:11px; color:#8b949e">Ready</span>
+                </div>
+                <div class="panel-body">
+                    <div class="config-group">
+                        <label>Command</label>
+                        <textarea id="customCmd" rows="3" placeholder="Enter command(s) to run...&#10;e.g. python script.py&#10;     npm test&#10;     dir /s" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:8px 10px;border-radius:6px;font-size:13px;font-family:'Cascadia Code',monospace;resize:vertical;"></textarea>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-bottom:12px;">
+                        <div class="config-group" style="flex:1;margin-bottom:0">
+                            <label>Working Directory (optional)</label>
+                            <input type="text" id="customCwd" placeholder="Leave empty for server default" />
+                        </div>
+                        <div class="config-group" style="width:100px;margin-bottom:0">
+                            <label>Timeout (s)</label>
+                            <input type="number" id="customTimeout" value="60" min="5" max="600" />
+                        </div>
+                    </div>
+                    <button class="primary" id="btnRunCmd" onclick="runCustomCommand()" style="margin-bottom:12px">
+                        ▶ Run Command
+                    </button>
+                    <div class="output-area" id="cmdOutputArea" style="min-height:120px; max-height:300px;">Waiting for command...</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -576,6 +604,91 @@ function updateMonitorUI(monitoring) {
         btnStop.style.display = 'none';
         if (serverConnected) document.getElementById('serverDot').className = 'status-dot green';
     }
+}
+
+// ============================================================
+// CUSTOM COMMAND RUNNER
+// ============================================================
+let cmdPollTimer = null;
+
+async function runCustomCommand() {
+    if (!serverConnected) { log('Server offline!', 'error'); return; }
+    const cmd = document.getElementById('customCmd').value.trim();
+    if (!cmd) { log('Enter a command first', 'error'); return; }
+
+    const cwd = document.getElementById('customCwd').value.trim();
+    const timeout = parseInt(document.getElementById('customTimeout').value) || 60;
+
+    document.getElementById('btnRunCmd').disabled = true;
+    document.getElementById('cmdStatus').textContent = '⏳ Running...';
+    document.getElementById('cmdStatus').style.color = '#a371f7';
+    document.getElementById('cmdOutputArea').textContent = `Running: ${cmd}\n...`;
+    log(`Custom command: ${cmd}`, 'highlight');
+
+    try {
+        const r = await fetch(`${NOCOPO_SERVER}/run-command`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: cmd, cwd: cwd || undefined, timeout })
+        });
+        const data = await r.json();
+        if (r.ok) {
+            startCmdPolling();
+        } else {
+            document.getElementById('cmdOutputArea').textContent = `Error: ${data.error}`;
+            document.getElementById('cmdStatus').textContent = '❌ Error';
+            document.getElementById('cmdStatus').style.color = '#f85149';
+            document.getElementById('btnRunCmd').disabled = false;
+        }
+    } catch (e) {
+        document.getElementById('cmdOutputArea').textContent = `Request failed: ${e.message}`;
+        document.getElementById('cmdStatus').textContent = '❌ Failed';
+        document.getElementById('cmdStatus').style.color = '#f85149';
+        document.getElementById('btnRunCmd').disabled = false;
+    }
+}
+
+function startCmdPolling() {
+    if (cmdPollTimer) clearInterval(cmdPollTimer);
+    cmdPollTimer = setInterval(pollCmdStatus, 800);
+}
+
+async function pollCmdStatus() {
+    try {
+        const r = await fetch(`${NOCOPO_SERVER}/run-command-status`);
+        const data = await r.json();
+
+        if (data.status === 'RUNNING') {
+            document.getElementById('cmdOutputArea').textContent = `Running: ${data.command}\n⏳ Waiting for completion...`;
+            return;
+        }
+
+        // Command finished
+        clearInterval(cmdPollTimer);
+        cmdPollTimer = null;
+        document.getElementById('btnRunCmd').disabled = false;
+
+        let output = `$ ${data.command}\n`;
+        output += `Working Dir: ${data.cwd}\n`;
+        output += `─────────────────────────────────────\n`;
+        if (data.stdout) output += data.stdout;
+        if (data.stderr) output += `\n[STDERR] ${data.stderr}`;
+        output += `\n─────────────────────────────────────\n`;
+        output += `Exit Code: ${data.exit_code} | Status: ${data.status}`;
+        if (data.completed_at) output += ` | ${new Date(data.completed_at).toLocaleTimeString()}`;
+
+        document.getElementById('cmdOutputArea').textContent = output;
+
+        if (data.status === 'SUCCESS') {
+            document.getElementById('cmdStatus').textContent = '✅ Success';
+            document.getElementById('cmdStatus').style.color = '#3fb950';
+            log(`Command completed (exit 0)`, 'success');
+        } else {
+            document.getElementById('cmdStatus').textContent = `❌ ${data.status}`;
+            document.getElementById('cmdStatus').style.color = '#f85149';
+            log(`Command ${data.status} (exit ${data.exit_code})`, 'error');
+        }
+    } catch (e) {}
 }
 
 // ============================================================

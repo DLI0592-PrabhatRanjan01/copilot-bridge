@@ -55,6 +55,7 @@ nocopo_state = {
         "triggers_count": 0,
     },
     "detected_trigger": None,
+    "custom_command_result": None,
 }
 
 NOCOPO_STEPS = [
@@ -590,6 +591,8 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
     try:
         # Check status.json for COPO-provided run config (run_mode, run_command, entry_point)
         status = get_status_json()
+        request_type = "output"  # default
+        modules_command = ""
         if status and status.get("pushed_by") == "copo":
             if status.get("run_mode"):
                 config["run_mode"] = status["run_mode"]
@@ -599,6 +602,8 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 config["entry_point"] = status["entry_point"]
             if status.get("target_repo"):
                 config["target_repo"] = status["target_repo"]
+            request_type = status.get("request_type", "output")
+            modules_command = status.get("modules_command", "")
 
         # DETECT
         set_step("detect", "done", trigger_reason)
@@ -615,6 +620,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         repo_url = f"https://{token}@github.com/{user}/{target_repo}.git"
 
         if os.path.exists(os.path.join(repo_dir, ".git")):
+            set_step("pull", "running", f"Pulling latest into: {repo_dir}")
             result = subprocess.run(
                 ["git", "pull", "origin", branch],
                 capture_output=True, text=True, cwd=repo_dir, timeout=60
@@ -629,10 +635,11 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 if result.returncode != 0:
                     set_step("pull", "error", f"Clone failed: {result.stderr[:200]}")
                     return {"success": False, "error": "Clone failed"}
-            set_step("pull", "done", "Pulled latest")
+            set_step("pull", "done", f"Pulled latest → {repo_dir}")
         else:
             if os.path.exists(repo_dir):
                 shutil.rmtree(repo_dir, ignore_errors=True)
+            set_step("pull", "running", f"Cloning into: {repo_dir}")
             result = subprocess.run(
                 ["git", "clone", "--branch", branch, repo_url, repo_dir],
                 capture_output=True, text=True, timeout=60
@@ -640,8 +647,140 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             if result.returncode != 0:
                 set_step("pull", "error", f"Clone failed: {result.stderr[:200]}")
                 return {"success": False, "error": "Clone failed"}
-            set_step("pull", "done", "Cloned fresh")
+            set_step("pull", "done", f"Cloned fresh → {repo_dir}")
 
+        # ============================================================
+        # MODULES MODE: Install deps → push to target repo → done
+        # ============================================================
+        if request_type == "modules":
+            set_step("install", "running", "Installing modules (MODULES mode)...")
+            update_bridge_progress("install", "MODULES mode: installing dependencies...")
+
+            # Determine install command
+            install_output = []
+            if modules_command:
+                # User-provided install command
+                cmd_str = modules_command
+            else:
+                # Auto-detect
+                pkg_json = os.path.join(repo_dir, "package.json")
+                req_file = os.path.join(repo_dir, "requirements.txt")
+                pom_xml = os.path.join(repo_dir, "pom.xml")
+                if os.path.exists(pkg_json):
+                    cmd_str = "npm install"
+                elif os.path.exists(req_file):
+                    cmd_str = f"{sys.executable} -m pip install -r requirements.txt"
+                elif os.path.exists(pom_xml):
+                    cmd_str = "mvn clean install -DskipTests -q" if shutil.which("mvn") else "./mvnw clean install -DskipTests -q"
+                else:
+                    set_step("install", "error", "No package.json/requirements.txt/pom.xml found")
+                    return {"success": False, "error": "Cannot detect what to install"}
+
+            set_step("install", "running", f"Running: {cmd_str}")
+            try:
+                proc = subprocess.run(
+                    cmd_str, capture_output=True, text=True,
+                    timeout=600, cwd=repo_dir, shell=True
+                )
+                install_output.append(f"$ {cmd_str}")
+                if proc.stdout:
+                    install_output.append(proc.stdout)
+                if proc.stderr:
+                    install_output.append(f"[STDERR] {proc.stderr}")
+                install_output.append(f"Exit: {proc.returncode}")
+                if proc.returncode != 0:
+                    set_step("install", "error", f"Install failed (exit {proc.returncode})")
+                    return {"success": False, "error": f"Install failed: {proc.stderr[:300]}"}
+                set_step("install", "done", f"Modules installed via: {cmd_str}")
+            except subprocess.TimeoutExpired:
+                set_step("install", "error", "Install timed out (600s)")
+                return {"success": False, "error": "Install timeout"}
+            except Exception as e:
+                set_step("install", "error", str(e))
+                return {"success": False, "error": str(e)}
+
+            # PUSH modules back to target repo
+            set_step("run", "running", "Pushing installed modules to target repo...")
+            update_bridge_progress("run", "Pushing modules to target repo...")
+
+            # Remove .gitignore entry for node_modules if it exists (so we CAN push them)
+            gitignore_path = os.path.join(repo_dir, ".gitignore")
+            if os.path.exists(gitignore_path):
+                with open(gitignore_path, "r", encoding="utf-8", errors="ignore") as f:
+                    lines = f.readlines()
+                filtered = [l for l in lines if l.strip() not in ("node_modules", "node_modules/", "/node_modules")]
+                with open(gitignore_path, "w", encoding="utf-8") as f:
+                    f.writelines(filtered)
+
+            # Git add, commit, push
+            try:
+                subprocess.run(["git", "add", "-A"], cwd=repo_dir, capture_output=True, text=True, timeout=600)
+                subprocess.run(
+                    ["git", "commit", "-m", "[NOCOPO] Installed modules (pushed by NOCOPO)"],
+                    cwd=repo_dir, capture_output=True, text=True, timeout=300
+                )
+                push_result = subprocess.run(
+                    ["git", "push", "origin", branch],
+                    cwd=repo_dir, capture_output=True, text=True, timeout=600
+                )
+                if push_result.returncode != 0:
+                    set_step("run", "error", f"Push failed: {push_result.stderr[:200]}")
+                    return {"success": False, "error": f"Modules push failed: {push_result.stderr[:200]}"}
+                set_step("run", "done", "Modules pushed to target repo")
+            except Exception as e:
+                set_step("run", "error", str(e))
+                return {"success": False, "error": str(e)}
+
+            # Update status.json to tell COPO to pull
+            set_step("capture", "done", "Modules mode — no output capture needed")
+            set_step("push_output", "running", "Updating bridge status...")
+
+            iteration = (nocopo_state["last_result"]["iteration"] + 1) if nocopo_state["last_result"] else 1
+            output_status = {
+                "state": "modules_ready",
+                "pushed_by": "nocopo",
+                "request_type": "modules",
+                "target_repo": target_repo,
+                "iteration": iteration,
+                "exit_code": 0,
+                "timestamp": datetime.now().isoformat(),
+                "message": f"Modules installed & pushed to {target_repo}. COPO should pull."
+            }
+            full_output = "\n".join(install_output)
+            files_to_push = [
+                {"path": "status.json", "content": json.dumps(output_status, indent=2)},
+                {"path": "output.txt", "content": full_output},
+            ]
+            push_multiple_files(config["bridge_repo"], files_to_push,
+                                f"[NOCOPO] Modules installed & pushed (iter {iteration})")
+
+            set_step("push_output", "done", "Bridge status updated")
+            set_step("done", "done", "Modules installed & pushed to target repo!")
+
+            result = {
+                "success": True,
+                "iteration": iteration,
+                "target_repo": target_repo,
+                "exit_code": 0,
+                "run_status": "MODULES_PUSHED",
+                "output": full_output[:5000],
+                "trigger": trigger_reason,
+                "completed_at": datetime.now().isoformat(),
+            }
+            nocopo_state["last_result"] = result
+            nocopo_state["history"].append({
+                "iteration": iteration,
+                "target_repo": target_repo,
+                "run_status": "MODULES_PUSHED",
+                "trigger": trigger_reason,
+                "timestamp": datetime.now().isoformat(),
+            })
+            nocopo_state["poll_status"]["triggers_count"] += 1
+            return result
+
+        # ============================================================
+        # OUTPUT MODE (default): Install → Run → Capture → Push output
+        # ============================================================
         # INSTALL
         set_step("install", "running", "Checking dependencies...")
         update_bridge_progress("install", "Installing dependencies...")
@@ -721,6 +860,9 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 if line:
                     commands.append(line)
 
+            all_outputs.append(f"=== Working Dir: {repo_dir} ===")
+            all_outputs.append(f"=== Total Commands: {len(commands)} ===\n")
+
             for i, cmd_str in enumerate(commands):
                 cmd_label = cmd_str[:60] + "..." if len(cmd_str) > 60 else cmd_str
                 set_step("run", "running", f"[{i+1}/{len(commands)}] {cmd_label}")
@@ -733,7 +875,8 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                         timeout=timeout_sec, cwd=repo_dir,
                         shell=(sys.platform == "win32" and cmd_parts[0] in ["npm", "npx", "mvn", "gradle", "gradlew.bat"])
                     )
-                    all_outputs.append(f"--- Command: {cmd_str} ---")
+                    all_outputs.append(f"--- Command [{i+1}]: {cmd_str} ---")
+                    all_outputs.append(f"--- Full CWD: {repo_dir} ---")
                     if proc.stdout:
                         all_outputs.append(proc.stdout)
                     if proc.stderr:
@@ -757,8 +900,8 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             # Manual mode with entry point only
             entry_path = os.path.join(repo_dir, entry)
             if not os.path.exists(entry_path):
-                set_step("run", "error", f"Entry not found: {entry}")
-                return {"success": False, "error": f"Entry not found: {entry}"}
+                set_step("run", "error", f"Entry not found: {entry_path}")
+                return {"success": False, "error": f"Entry not found: {entry_path}"}
             if entry.endswith(".py"):
                 cmd_parts = [sys.executable, entry_path]
             elif entry.endswith(".js"):
@@ -766,7 +909,10 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             else:
                 cmd_parts = [entry_path]
 
-            set_step("run", "running", f"Running: {' '.join(os.path.basename(c) for c in cmd_parts)}")
+            full_cmd_str = ' '.join(cmd_parts)
+            set_step("run", "running", f"Running: {full_cmd_str}")
+            all_outputs.append(f"=== Working Dir: {repo_dir} ===")
+            all_outputs.append(f"=== Command: {full_cmd_str} ===")
             try:
                 proc = subprocess.run(
                     cmd_parts, capture_output=True, text=True,
@@ -795,12 +941,15 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
 
             for i, svc in enumerate(detected_services):
                 svc_label = f"{svc['name']} ({svc['type']})"
-                set_step("run", "running", f"[{i+1}/{len(detected_services)}] Running {svc_label}...")
-                update_bridge_progress("run", f"Running {svc_label}...")
+                svc_dir = svc['dir']
+                full_cmd = ' '.join(svc['run_cmd'])
+                set_step("run", "running", f"[{i+1}/{len(detected_services)}] Running {svc_label} in {svc_dir}")
+                update_bridge_progress("run", f"Running {svc_label} in {svc_dir}")
 
                 svc_exit, svc_stdout, svc_stderr, svc_status = run_service(svc, timeout_sec)
                 all_outputs.append(f"=== Service: {svc_label} ===")
-                all_outputs.append(f"=== Command: {' '.join(svc['run_cmd'])} ===")
+                all_outputs.append(f"=== Working Dir: {svc_dir} ===")
+                all_outputs.append(f"=== Command: {full_cmd} ===")
                 if svc_stdout:
                     all_outputs.append(svc_stdout)
                 if svc_stderr:
@@ -830,7 +979,10 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 return {"success": False, "error": "No entry point found. Set run_mode to 'manual' and provide a run_command."}
 
             cmd_parts = [sys.executable, entry_path]
-            set_step("run", "running", f"Running: {os.path.basename(entry_path)}")
+            full_cmd_str = f"{sys.executable} {entry_path}"
+            set_step("run", "running", f"Running: {full_cmd_str}")
+            all_outputs.append(f"=== Working Dir: {repo_dir} ===")
+            all_outputs.append(f"=== Command: {full_cmd_str} ===")
             try:
                 proc = subprocess.run(
                     cmd_parts, capture_output=True, text=True,
@@ -863,6 +1015,8 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         output_parts = [
             f"=== Target: {target_repo} ===",
             f"=== Run Mode: {run_mode} ===",
+            f"=== Repo Cloned At: {repo_dir} ===",
+            f"=== Python Interpreter: {sys.executable} ===",
             f"=== Timestamp: {datetime.now().isoformat()} ===",
         ]
         if detected_services:
@@ -1052,6 +1206,13 @@ class NocopoHandler(BaseHTTPRequestHandler):
         elif self.path == "/history":
             self._json_response(nocopo_state["history"])
 
+        elif self.path == "/run-command-status":
+            result = nocopo_state.get("custom_command_result")
+            if result:
+                self._json_response(result)
+            else:
+                self._json_response({"status": "IDLE", "message": "No command has been run"})
+
         else:
             self._json_response({"error": "Not found"}, 404)
 
@@ -1100,6 +1261,55 @@ class NocopoHandler(BaseHTTPRequestHandler):
                 nocopo_state["poll_status"]["checks_count"] += 1
                 self._json_response({"message": "No changes detected"})
 
+        elif self.path == "/run-command":
+            body = self._read_body()
+            command = body.get("command", "").strip()
+            cwd = body.get("cwd", "").strip() or None
+            timeout_sec = int(body.get("timeout", 60))
+            if not command:
+                self._json_response({"error": "No command provided"}, 400)
+                return
+
+            def _exec_custom_command(cmd_str, working_dir, t_sec):
+                try:
+                    proc = subprocess.run(
+                        cmd_str, capture_output=True, text=True,
+                        timeout=t_sec, cwd=working_dir, shell=True
+                    )
+                    nocopo_state["custom_command_result"] = {
+                        "command": cmd_str,
+                        "cwd": working_dir or os.getcwd(),
+                        "stdout": proc.stdout,
+                        "stderr": proc.stderr,
+                        "exit_code": proc.returncode,
+                        "status": "SUCCESS" if proc.returncode == 0 else "FAILED",
+                        "completed_at": datetime.now().isoformat(),
+                    }
+                except subprocess.TimeoutExpired:
+                    nocopo_state["custom_command_result"] = {
+                        "command": cmd_str,
+                        "cwd": working_dir or os.getcwd(),
+                        "stdout": "",
+                        "stderr": f"TIMEOUT after {t_sec}s",
+                        "exit_code": -1,
+                        "status": "TIMEOUT",
+                        "completed_at": datetime.now().isoformat(),
+                    }
+                except Exception as e:
+                    nocopo_state["custom_command_result"] = {
+                        "command": cmd_str,
+                        "cwd": working_dir or os.getcwd(),
+                        "stdout": "",
+                        "stderr": str(e),
+                        "exit_code": -1,
+                        "status": "ERROR",
+                        "completed_at": datetime.now().isoformat(),
+                    }
+
+            nocopo_state["custom_command_result"] = {"status": "RUNNING", "command": command}
+            threading.Thread(target=_exec_custom_command, args=(command, cwd, timeout_sec), daemon=True).start()
+            self._json_response({"message": "Command started", "command": command})
+
         else:
             self._json_response({"error": "Not found"}, 404)
 
@@ -1127,6 +1337,8 @@ def main():
     print("  POST /stop-monitoring  - Stop auto-polling")
     print("  POST /trigger         - Manual trigger pipeline")
     print("  POST /poll-once       - Single poll check")
+    print("  POST /run-command     - Run a custom command")
+    print("  GET  /run-command-status - Get custom command result")
     print()
 
     if not nocopo_state["config"]["pat_token"]:

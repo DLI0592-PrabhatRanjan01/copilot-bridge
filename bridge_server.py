@@ -337,22 +337,49 @@ def git_pull_latest(cwd, branch="main"):
 
 def git_add_commit_push(cwd, commit_message, branch="main"):
     """Stage all changes, commit, and push. Returns (success, files_committed, error)."""
-    # Stage all changes
-    ok, _, err = git_run(["add", "-A"], cwd)
+    # Remove stale index.lock if it exists (from crashed git process)
+    index_lock = os.path.join(cwd, ".git", "index.lock")
+    if os.path.exists(index_lock):
+        try:
+            os.remove(index_lock)
+            print(f"[COPO] Removed stale .git/index.lock in {cwd}")
+        except OSError:
+            pass
+
+    # Ensure node_modules is in .gitignore
+    gitignore_path = os.path.join(cwd, ".gitignore")
+    ignore_entries = ["node_modules/", "node_modules"]
+    needs_update = True
+    if os.path.exists(gitignore_path):
+        with open(gitignore_path, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+        if any(entry in content for entry in ignore_entries):
+            needs_update = False
+    else:
+        content = ""
+    if needs_update:
+        with open(gitignore_path, "a", encoding="utf-8") as f:
+            f.write("\nnode_modules/\n")
+        print(f"[COPO] Added node_modules/ to .gitignore in {cwd}")
+        # Remove node_modules from git tracking if already tracked
+        git_run(["rm", "-r", "--cached", "node_modules"], cwd, timeout=120)
+
+    # Stage all changes (large repos need more time)
+    ok, _, err = git_run(["add", "-A"], cwd, timeout=600)
     if not ok:
         return False, [], f"git add failed: {err}"
 
     # Check if there's anything to commit
-    ok, stdout, _ = git_run(["status", "--porcelain"], cwd)
+    ok, stdout, _ = git_run(["status", "--porcelain"], cwd, timeout=120)
     if not stdout.strip():
         return True, [], ""  # Nothing to commit
 
     # Get list of staged files
-    ok, diff_output, _ = git_run(["diff", "--cached", "--name-only"], cwd)
+    ok, diff_output, _ = git_run(["diff", "--cached", "--name-only"], cwd, timeout=120)
     committed_files = [f for f in diff_output.splitlines() if f.strip()]
 
     # Commit
-    ok, _, err = git_run(["commit", "-m", commit_message], cwd)
+    ok, _, err = git_run(["commit", "-m", commit_message], cwd, timeout=300)
     if not ok:
         if "nothing to commit" in err:
             return True, [], ""
@@ -373,7 +400,7 @@ def git_add_commit_push(cwd, commit_message, branch="main"):
             shutil.rmtree(rebase_apply_dir)
 
     # Pull --rebase BEFORE pushing (to get remote changes under our commit)
-    ok, _, pull_err = git_run(["pull", "origin", branch, "--rebase"], cwd)
+    ok, _, pull_err = git_run(["pull", "origin", branch, "--rebase"], cwd, timeout=300)
     if not ok:
         # If rebase fails due to conflicts, abort and force push
         git_run(["rebase", "--abort"], cwd)
@@ -381,16 +408,16 @@ def git_add_commit_push(cwd, commit_message, branch="main"):
             import shutil
             shutil.rmtree(rebase_merge_dir)
         print(f"[COPO] Pull rebase failed, force pushing: {pull_err}")
-        ok, _, err = git_run(["push", "origin", branch, "--force-with-lease"], cwd)
+        ok, _, err = git_run(["push", "origin", branch, "--force-with-lease"], cwd, timeout=600)
         if not ok:
             return False, committed_files, f"git push failed: {err}"
         return True, committed_files, ""
 
     # Push
-    ok, _, err = git_run(["push", "origin", branch], cwd)
+    ok, _, err = git_run(["push", "origin", branch], cwd, timeout=600)
     if not ok:
         # Last resort: force push
-        ok, _, err = git_run(["push", "origin", branch, "--force-with-lease"], cwd)
+        ok, _, err = git_run(["push", "origin", branch, "--force-with-lease"], cwd, timeout=600)
         if not ok:
             return False, committed_files, f"git push failed: {err}"
 
@@ -538,6 +565,8 @@ def run_pipeline():
             "entry_point": config["entry_point"],
             "run_command": config["run_command"],
             "run_mode": config.get("run_mode", "auto"),
+            "request_type": config.get("request_type", "output"),
+            "modules_command": config.get("modules_command", ""),
             "message": f"Code pushed from {os.path.basename(local_path)}"
         }
         status_path = os.path.join(bridge_dir, "status.json")
@@ -617,6 +646,31 @@ def run_pipeline():
                             run_status = "SUCCESS" if exit_code == 0 else "FAILED"
                             output_content = get_github_file_content("copilot-bridge", "output.txt")
                             full_output = output_content or f"Output iteration {iteration} complete"
+                            break
+
+                        if (status_data.get("state") == "modules_ready" and
+                            status_data.get("pushed_by") == "nocopo" and
+                            status_data.get("iteration", 0) >= iteration):
+                            # NOCOPO installed modules and pushed them to target repo
+                            for sid in ["detect", "pull", "install", "run", "capture", "push_output"]:
+                                set_step(sid, "done", "Completed by NOCOPO")
+                            exit_code = 0
+                            run_status = "MODULES_PUSHED"
+                            # Pull target repo locally so COPO gets the modules
+                            local_path = config["local_repo_path"]
+                            if local_path and os.path.exists(os.path.join(local_path, ".git")):
+                                set_step("receive", "running", "Pulling modules into local repo...")
+                                pull_res = subprocess.run(
+                                    ["git", "pull", "origin", branch],
+                                    capture_output=True, text=True,
+                                    cwd=local_path, timeout=600
+                                )
+                                if pull_res.returncode == 0:
+                                    full_output = f"Modules installed by NOCOPO and pulled to local repo.\n{pull_res.stdout}"
+                                else:
+                                    full_output = f"Modules pushed by NOCOPO but local pull failed: {pull_res.stderr}\nRun 'git pull' manually in {local_path}"
+                            else:
+                                full_output = f"Modules installed & pushed to {target_repo} by NOCOPO.\nRun 'git pull' in your local repo to get them."
                             break
                     except (json.JSONDecodeError, UnicodeDecodeError):
                         pass
