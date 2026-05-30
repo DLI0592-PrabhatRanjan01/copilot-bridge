@@ -1,88 +1,23 @@
-=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation ===
-=== Commands ===
-  cd C:\Users\prabh\naukri-automation\backend && mvn spring-boot:run
-  cd C:\Users\prabh\naukri-automation\frontend && npm start
+=== Target: naukri-automation ===
+=== Run Mode: auto ===
+=== Repo Cloned At: c:\Users\prabh\naukri-automation ===
+=== Python Interpreter: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe ===
+=== Timestamp: 2026-05-30T23:38:56.847399 ===
+=== Detected: backend(springboot), frontend(react) ===
 
-[INFO] Scanning for projects...
-[INFO] 
-[INFO] --------------------< com.naukri:naukri-automation >--------------------
-[INFO] Building Naukri Automation 1.0.0
-[INFO]   from pom.xml
-[INFO] --------------------------------[ jar ]---------------------------------
-[INFO] 
-[INFO] >>> spring-boot:3.2.5:run (default-cli) > test-compile @ naukri-automation >>>
-[INFO] 
-[INFO] --- resources:3.3.1:resources (default-resources) @ naukri-automation ---
-[INFO] Copying 1 resource from src\main\resources to target\classes
-[INFO] Copying 0 resource from src\main\resources to target\classes
-[INFO] 
-[INFO] --- compiler:3.11.0:compile (default-compile) @ naukri-automation ---
-[INFO] Changes detected - recompiling the module! :input tree
-[INFO] Compiling 35 source files with javac [debug release 17] to target\classes
-[INFO] Annotation processing is enabled because one or more processors were found
-  on the class path. A future release of javac may disable annotation processing
-  unless at least one processor is specified by name (-processor), or a search
-  path is specified (--processor-path, --processor-module-path), or annotation
-  processing is enabled explicitly (-proc:only, -proc:full).
-  Use -Xlint:-options to suppress this message.
-  Use -proc:none to disable annotation processing.
-[INFO] 
-[INFO] --- resources:3.3.1:testResources (default-testResources) @ naukri-automation ---
-[INFO] skip non existing resourceDirectory C:\Users\prabh\naukri-automation\backend\src\test\resources
-[INFO] 
-[INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ naukri-automation ---
-[INFO] No sources to compile
-[INFO] 
-[INFO] <<< spring-boot:3.2.5:run (default-cli) < test-compile @ naukri-automation <<<
-[INFO] 
-[INFO] 
-[INFO] --- spring-boot:3.2.5:run (default-cli) @ naukri-automation ---
-[INFO] Attaching agents: []
+=== OUTPUT ===
+=== Service: backend (springboot) ===
+=== Working Dir: c:\Users\prabh\naukri-automation\backend ===
+=== Command: mvn spring-boot:run ===
+[STDERR] [WinError 2] The system cannot find the file specified
+=== Exit: -1 (ERROR) ===
 
-  .   ____          _            __ _ _
- /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
-( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
- \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
-  '  |____| .__|_| |_|_| |_\__, | / / / /
- =========|_|==============|___/=/_/_/_/
- :: Spring Boot ::                (v3.2.5)
+=== Service: frontend (react) ===
+=== Working Dir: c:\Users\prabh\naukri-automation\frontend ===
+=== Command: npm run build ===
+[STDERR] [WinError 2] The system cannot find the file specified
+=== Exit: -1 (ERROR) ===
 
-2026-05-30T23:16:42.404+05:30  INFO 40024 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : Starting NaukriAutomationApplication using Java 22.0.2 with PID 40024 (C:\Users\prabh\naukri-automation\backend\target\classes started by prabh in C:\Users\prabh\naukri-automation\backend)
-2026-05-30T23:16:42.408+05:30  INFO 40024 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : No active profile set, falling back to 1 default profile: "default"
-2026-05-30T23:16:43.617+05:30  INFO 40024 --- [naukri-automation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-05-30T23:16:43.924+05:30  INFO 40024 --- [naukri-automation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 278 ms. Found 5 JPA repository interfaces.
-2026-05-30T23:16:47.632+05:30  INFO 40024 --- [naukri-automation] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 4000 (http)
-2026-05-30T23:16:47.706+05:30  INFO 40024 --- [naukri-automation] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-05-30T23:16:47.707+05:30  INFO 40024 --- [naukri-automation] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.20]
-2026-05-30T23:16:48.149+05:30  INFO 40024 --- [naukri-automation] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
-2026-05-30T23:16:48.153+05:30  INFO 40024 --- [naukri-automation] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 5633 ms
-2026-05-30T23:16:48.342+05:30  INFO 40024 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-05-30T23:16:50.042+05:30  INFO 40024 --- [naukri-automation] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn0: url=jdbc:h2:file:./data/naukri-db user=SA
-2026-05-30T23:16:50.067+05:30  INFO 40024 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
-2026-05-30T23:16:50.179+05:30  INFO 40024 --- [naukri-automation] [           main] o.s.b.a.h2.H2ConsoleAutoConfiguration    : H2 console available at '/h2-console'. Database available at 'jdbc:h2:file:./data/naukri-db'
-2026-05-30T23:16:51.080+05:30  INFO 40024 --- [naukri-automation] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
-2026-05-30T23:16:51.822+05:30  INFO 40024 --- [naukri-automation] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
-2026-05-30T23:16:52.003+05:30  INFO 40024 --- [naukri-automation] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
-2026-05-30T23:16:53.598+05:30  INFO 40024 --- [naukri-automation] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-05-30T23:16:53.813+05:30  WARN 40024 --- [naukri-automation] [           main] org.hibernate.orm.deprecation            : HHH90000025: H2Dialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
-2026-05-30T23:17:00.143+05:30  INFO 40024 --- [naukri-automation] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-05-30T23:17:00.502+05:30  INFO 40024 --- [naukri-automation] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
-2026-05-30T23:17:02.109+05:30  INFO 40024 --- [naukri-automation] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
-2026-05-30T23:17:05.177+05:30  WARN 40024 --- [naukri-automation] [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2026-05-30T23:17:07.694+05:30  INFO 40024 --- [naukri-automation] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 4000 (http) with context path ''
-2026-05-30T23:17:07.808+05:30  INFO 40024 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : Started NaukriAutomationApplication in 26.388 seconds (process running for 27.164)
-[INFO] ------------------------------------------------------------------------
-[INFO] BUILD FAILURE
-[INFO] ------------------------------------------------------------------------
-[INFO] Total time:  01:46 min
-[INFO] Finished at: 2026-05-30T23:17:16+05:30
-[INFO] ------------------------------------------------------------------------
-[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:3.2.5:run (default-cli) on project naukri-automation: Process terminated with exit code: -1 -> [Help 1]
-[ERROR] 
-[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
-[ERROR] Re-run Maven using the -X switch to enable full debug logging.
-[ERROR] 
-[ERROR] For more information about the errors and possible solutions, please read the following articles:
-[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException
 
---- Exit Code: 1 ---
+=== EXIT CODE: -1 ===
+=== STATUS: ERROR ===
