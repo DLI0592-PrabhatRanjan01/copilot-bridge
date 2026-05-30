@@ -31,6 +31,7 @@ nocopo_state = {
     "monitoring": False,      # Is auto-poll loop running?
     "current_step": None,
     "steps": [],
+    "transfer_info": None,
     "config": {
         "github_user": "DLI0592-PrabhatRanjan01",
         "pat_token": os.environ.get("GITHUB_PAT", ""),
@@ -231,6 +232,59 @@ def get_status_json():
     if content:
         return json.loads(content)
     return None
+
+
+def summarize_status(status):
+    if not status:
+        return None
+    return {
+        "state": status.get("state"),
+        "pushed_by": status.get("pushed_by"),
+        "iteration": status.get("iteration"),
+        "target_repo": status.get("target_repo"),
+        "request_type": status.get("request_type"),
+        "timestamp": status.get("timestamp"),
+        "message": status.get("message"),
+    }
+
+
+def get_repo_snapshot(repo_name, sha):
+    info = get_commit_info(repo_name, sha) if sha else None
+    return {
+        "repo": repo_name,
+        "sha": info["sha"] if info else (sha[:7] if sha else None),
+        "message": info["message"] if info else None,
+        "author": info["author"] if info else None,
+        "files": info["files"] if info else [],
+    }
+
+
+def build_idle_transfer_info(note=None):
+    config = nocopo_state["config"]
+    status = get_status_json()
+    poll = nocopo_state["poll_status"]
+    bridge_sha = poll.get("last_bridge_commit") or get_latest_commit(config["bridge_repo"])
+    target_sha = poll.get("last_target_commit") or get_latest_commit(config["target_repo"])
+    state = status.get("state") if status else None
+    summary = note
+    if state == "satisfied":
+        summary = summary or "COPO marked the workflow satisfied. Monitoring can stop."
+    elif state in ("output_ready", "modules_ready"):
+        summary = summary or "NOCOPO has already pushed the latest result."
+    else:
+        summary = summary or "Watching for the next COPO or target-repo change."
+
+    return {
+        "status": "satisfied" if state == "satisfied" else "idle",
+        "summary": summary,
+        "trigger": nocopo_state.get("detected_trigger"),
+        "bridge": get_repo_snapshot(config["bridge_repo"], bridge_sha),
+        "target": get_repo_snapshot(config["target_repo"], target_sha),
+        "status_json": summarize_status(status),
+        "pulled": None,
+        "pushed": None,
+        "updated_at": datetime.now().isoformat(),
+    }
 
 
 # ============================================================
@@ -563,6 +617,9 @@ def detect_changes():
     # Check status.json for COPO trigger (iteration OR timestamp based)
     status = get_status_json()
     if status:
+        if status.get("state") == "satisfied":
+            nocopo_state["transfer_info"] = build_idle_transfer_info()
+            return False, "COPO marked workflow satisfied"
         if status.get("state") == "code_ready" and status.get("pushed_by") == "copo":
             current_iter = status.get("iteration", 0)
             last_iter = nocopo_state["last_result"]["iteration"] if nocopo_state["last_result"] else 0
@@ -587,6 +644,17 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
     config = nocopo_state["config"]
     nocopo_state["running"] = True
     reset_steps()
+    nocopo_state["transfer_info"] = {
+        "status": "running",
+        "summary": trigger_reason,
+        "trigger": trigger_reason,
+        "bridge": None,
+        "target": None,
+        "status_json": summarize_status(get_status_json()),
+        "pulled": None,
+        "pushed": None,
+        "updated_at": datetime.now().isoformat(),
+    }
 
     try:
         # Check status.json for COPO-provided run config (run_mode, run_command, entry_point)
@@ -618,6 +686,14 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         target_repo = config["target_repo"]
         repo_dir = os.path.join(tempfile.gettempdir(), f"nocopo_{target_repo}")
         repo_url = f"https://{token}@github.com/{user}/{target_repo}.git"
+        used_existing_repo = os.path.exists(os.path.join(repo_dir, ".git"))
+        target_head_before = get_latest_commit(target_repo)
+        bridge_head_before = get_latest_commit(config["bridge_repo"])
+        nocopo_state["transfer_info"].update({
+            "bridge": get_repo_snapshot(config["bridge_repo"], bridge_head_before),
+            "target": get_repo_snapshot(target_repo, target_head_before),
+            "updated_at": datetime.now().isoformat(),
+        })
 
         if os.path.exists(os.path.join(repo_dir, ".git")):
             set_step("pull", "running", f"Pulling latest into: {repo_dir}")
@@ -648,6 +724,16 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 set_step("pull", "error", f"Clone failed: {result.stderr[:200]}")
                 return {"success": False, "error": "Clone failed"}
             set_step("pull", "done", f"Cloned fresh → {repo_dir}")
+
+        nocopo_state["transfer_info"]["pulled"] = {
+            "repo": target_repo,
+            "local_path": repo_dir,
+            "branch": branch,
+            "method": "pull" if used_existing_repo else "clone",
+            "commit": get_repo_snapshot(target_repo, get_latest_commit(target_repo)),
+            "updated_at": datetime.now().isoformat(),
+        }
+        nocopo_state["transfer_info"]["updated_at"] = datetime.now().isoformat()
 
         # ============================================================
         # MODULES MODE: Install deps → push to target repo → done
@@ -753,6 +839,22 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             ]
             push_multiple_files(config["bridge_repo"], files_to_push,
                                 f"[NOCOPO] Modules installed & pushed (iter {iteration})")
+
+            bridge_head_after = get_latest_commit(config["bridge_repo"])
+            nocopo_state["transfer_info"].update({
+                "status": "complete",
+                "summary": f"Modules installed for {target_repo} and bridge files pushed.",
+                "status_json": summarize_status(output_status),
+                "bridge": get_repo_snapshot(config["bridge_repo"], bridge_head_after),
+                "pushed": {
+                    "repo": config["bridge_repo"],
+                    "branch": config["branch"],
+                    "files": [f["path"] for f in files_to_push],
+                    "commit": get_repo_snapshot(config["bridge_repo"], bridge_head_after),
+                    "updated_at": datetime.now().isoformat(),
+                },
+                "updated_at": datetime.now().isoformat(),
+            })
 
             set_step("push_output", "done", "Bridge status updated")
             set_step("done", "done", "Modules installed & pushed to target repo!")
@@ -1077,6 +1179,22 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
 
         set_step("push_output", "done", f"Pushed {len(files_to_push)} files in 1 commit (iter {iteration})")
 
+        bridge_head_after = get_latest_commit(bridge_repo)
+        nocopo_state["transfer_info"].update({
+            "status": "complete",
+            "summary": f"Pulled {target_repo}, ran it, and pushed {len(files_to_push)} bridge file(s).",
+            "status_json": summarize_status(output_status),
+            "bridge": get_repo_snapshot(bridge_repo, bridge_head_after),
+            "pushed": {
+                "repo": bridge_repo,
+                "branch": config["branch"],
+                "files": [f["path"] for f in files_to_push],
+                "commit": get_repo_snapshot(bridge_repo, bridge_head_after),
+                "updated_at": datetime.now().isoformat(),
+            },
+            "updated_at": datetime.now().isoformat(),
+        })
+
         # DONE
         set_step("done", "done", "Pipeline complete!")
 
@@ -1104,6 +1222,12 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
     except Exception as e:
         if nocopo_state["current_step"]:
             set_step(nocopo_state["current_step"], "error", str(e))
+        if nocopo_state["transfer_info"] is not None:
+            nocopo_state["transfer_info"].update({
+                "status": "error",
+                "summary": str(e),
+                "updated_at": datetime.now().isoformat(),
+            })
         return {"success": False, "error": str(e)}
     finally:
         nocopo_state["running"] = False
@@ -1132,10 +1256,17 @@ def poll_loop():
             poll["checks_count"] += 1
 
             if not nocopo_state["running"]:
+                status = get_status_json()
+                if status and status.get("state") == "satisfied":
+                    nocopo_state["transfer_info"] = build_idle_transfer_info()
+                    nocopo_state["monitoring"] = False
+                    break
                 triggered, reason = detect_changes()
                 if triggered:
                     nocopo_state["detected_trigger"] = reason
                     run_nocopo_pipeline(reason)
+                elif nocopo_state["transfer_info"] is None:
+                    nocopo_state["transfer_info"] = build_idle_transfer_info(reason)
 
         except Exception as e:
             print(f"[NOCOPO] Poll error: {e}")
@@ -1193,6 +1324,7 @@ class NocopoHandler(BaseHTTPRequestHandler):
                 "poll_status": nocopo_state["poll_status"],
                 "history": nocopo_state["history"][-20:],
                 "detected_trigger": nocopo_state["detected_trigger"],
+                "transfer_info": nocopo_state["transfer_info"] or build_idle_transfer_info(),
                 "timestamp": datetime.now().isoformat(),
             })
 

@@ -71,6 +71,33 @@
             line-height: 1.6; white-space: pre-wrap; word-break: break-all;
         }
 
+        .transfer-box {
+            background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 14px;
+        }
+        .transfer-summary {
+            display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px;
+            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+            margin-bottom: 12px; border: 1px solid #30363d;
+        }
+        .transfer-summary.running { color: #a371f7; border-color: #a371f7; background: #8957e520; }
+        .transfer-summary.complete { color: #3fb950; border-color: #3fb950; background: #3fb95020; }
+        .transfer-summary.idle { color: #8b949e; }
+        .transfer-summary.satisfied { color: #3fb950; border-color: #3fb950; background: #3fb95020; }
+        .transfer-summary.error { color: #f85149; border-color: #f85149; background: #f8514920; }
+        .transfer-note { font-size: 12px; color: #c9d1d9; margin-bottom: 14px; }
+        .transfer-grid { display: grid; gap: 12px; }
+        .transfer-card {
+            border: 1px solid #30363d; border-radius: 6px; padding: 12px; background: #161b22;
+        }
+        .transfer-card h3 { font-size: 12px; color: #f0f6fc; margin-bottom: 8px; }
+        .transfer-meta { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 12px; }
+        .transfer-meta dt { color: #8b949e; font-weight: 600; }
+        .transfer-meta dd { color: #c9d1d9; word-break: break-word; }
+        .transfer-files { margin-top: 10px; padding-top: 8px; border-top: 1px solid #21262d; }
+        .transfer-files-title { font-size: 10px; color: #8b949e; text-transform: uppercase; margin-bottom: 6px; }
+        .transfer-file { display: flex; gap: 8px; font-size: 12px; padding: 2px 0; font-family: 'Cascadia Code', monospace; }
+        .transfer-file span:first-child { color: #3fb950; }
+
         .log-area {
             background: #0d1117; border: 1px solid #30363d; border-radius: 4px;
             padding: 12px; max-height: 180px; overflow-y: auto;
@@ -249,6 +276,21 @@
                     <div class="pipeline-steps" id="stepsContainer">
                         <div style="color:#8b949e; font-size:13px; text-align:center; padding:20px;">
                             Start monitoring or trigger manually to see live steps
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Run Output -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>📦 Pull / Push Details</h2>
+                    <span id="transferStatus" style="font-size:11px; color:#8b949e">Idle</span>
+                </div>
+                <div class="panel-body">
+                    <div class="transfer-box" id="transferBox">
+                        <div style="color:#8b949e; font-size:13px; text-align:center; padding:10px;">
+                            Waiting for polling details...
                         </div>
                     </div>
                 </div>
@@ -476,12 +518,21 @@ async function pollStatus() {
         const r = await fetch(`${NOCOPO_SERVER}/status`);
         const data = await r.json();
         renderSteps(data.steps, data.current_step, data.running);
+        renderTransferInfo(data.transfer_info, data.monitoring, data.running);
         renderPollStatus(data.poll_status, data.monitoring);
         renderHistory(data.history);
         updateMonitorUI(data.monitoring);
 
         if (data.last_result && data.last_result.output) {
             document.getElementById('outputArea').textContent = data.last_result.output;
+        }
+
+        if (!data.running && !data.monitoring && data.transfer_info && data.transfer_info.status === 'satisfied') {
+            document.getElementById('pipelineStatus').textContent = '✅ Satisfied';
+            document.getElementById('pipelineStatus').style.color = '#3fb950';
+            log('COPO marked the workflow satisfied. Monitoring stopped.', 'success');
+            stopPolling();
+            return;
         }
 
         if (!data.running && data.steps && data.steps.length > 0) {
@@ -569,10 +620,151 @@ function renderPollStatus(poll, monitoring) {
     if (monitoring) {
         label.textContent = '🟢 Monitoring Active';
         label.style.color = '#3fb950';
+    } else if (document.getElementById('transferStatus').textContent === 'Satisfied') {
+        label.textContent = '✅ Stopped';
+        label.style.color = '#3fb950';
     } else {
-        label.textContent = 'Idle';
+        label.textContent = 'Up to date';
         label.style.color = '#8b949e';
     }
+}
+
+function formatFileList(files) {
+    if (!files || files.length === 0) {
+        return '<div class="transfer-files"><div class="transfer-files-title">Files</div><div style="font-size:12px;color:#8b949e">No file list available</div></div>';
+    }
+    return `
+        <div class="transfer-files">
+            <div class="transfer-files-title">Files</div>
+            ${files.map(file => `<div class="transfer-file"><span>•</span><span>${file}</span></div>`).join('')}
+        </div>`;
+}
+
+function formatMetaRow(label, value) {
+    const safeValue = value === undefined || value === null || value === '' ? '—' : value;
+    return `<dt>${label}</dt><dd>${safeValue}</dd>`;
+}
+
+function renderRepoCard(title, data, accent) {
+    if (!data) {
+        return `
+            <div class="transfer-card">
+                <h3>${title}</h3>
+                <div style="font-size:12px;color:#8b949e">No details yet</div>
+            </div>`;
+    }
+
+    return `
+        <div class="transfer-card">
+            <h3 style="color:${accent}">${title}</h3>
+            <dl class="transfer-meta">
+                ${formatMetaRow('Repo', data.repo)}
+                ${formatMetaRow('Commit', data.sha)}
+                ${formatMetaRow('Author', data.author)}
+                ${formatMetaRow('Message', data.message)}
+            </dl>
+            ${formatFileList(data.files)}
+        </div>`;
+}
+
+function renderPullPushCard(title, data, accent) {
+    if (!data) {
+        return `
+            <div class="transfer-card">
+                <h3>${title}</h3>
+                <div style="font-size:12px;color:#8b949e">Waiting for this stage...</div>
+            </div>`;
+    }
+
+    const commit = data.commit || {};
+    return `
+        <div class="transfer-card">
+            <h3 style="color:${accent}">${title}</h3>
+            <dl class="transfer-meta">
+                ${formatMetaRow('Repo', data.repo)}
+                ${formatMetaRow('Branch', data.branch)}
+                ${formatMetaRow('Method', data.method)}
+                ${formatMetaRow('Local Path', data.local_path)}
+                ${formatMetaRow('Commit', commit.sha)}
+                ${formatMetaRow('Message', commit.message)}
+                ${formatMetaRow('Updated', data.updated_at ? new Date(data.updated_at).toLocaleString() : '—')}
+            </dl>
+            ${formatFileList(data.files || commit.files)}
+        </div>`;
+}
+
+function renderStatusCard(info) {
+    const status = info && info.status_json;
+    if (!status) {
+        return `
+            <div class="transfer-card">
+                <h3>Bridge Status</h3>
+                <div style="font-size:12px;color:#8b949e">status.json not available</div>
+            </div>`;
+    }
+
+    return `
+        <div class="transfer-card">
+            <h3>Bridge Status</h3>
+            <dl class="transfer-meta">
+                ${formatMetaRow('State', status.state)}
+                ${formatMetaRow('Pushed By', status.pushed_by)}
+                ${formatMetaRow('Iteration', status.iteration)}
+                ${formatMetaRow('Request', status.request_type)}
+                ${formatMetaRow('Target Repo', status.target_repo)}
+                ${formatMetaRow('Timestamp', status.timestamp ? new Date(status.timestamp).toLocaleString() : '—')}
+                ${formatMetaRow('Message', status.message)}
+            </dl>
+        </div>`;
+}
+
+function renderTransferInfo(info, monitoring, running) {
+    const box = document.getElementById('transferBox');
+    const statusEl = document.getElementById('transferStatus');
+
+    if (!info) {
+        statusEl.textContent = monitoring ? 'Monitoring' : 'Idle';
+        statusEl.style.color = monitoring ? '#3fb950' : '#8b949e';
+        box.innerHTML = '<div style="color:#8b949e; font-size:13px; text-align:center; padding:10px;">Waiting for polling details...</div>';
+        return;
+    }
+
+    const state = info.status || (running ? 'running' : 'idle');
+    const titleMap = {
+        running: 'Running',
+        complete: 'Complete',
+        idle: 'Up to date',
+        satisfied: 'Satisfied',
+        error: 'Error'
+    };
+    const colorMap = {
+        running: '#a371f7',
+        complete: '#3fb950',
+        idle: '#8b949e',
+        satisfied: '#3fb950',
+        error: '#f85149'
+    };
+    statusEl.textContent = titleMap[state] || 'Idle';
+    statusEl.style.color = colorMap[state] || '#8b949e';
+
+    box.innerHTML = `
+        <div class="transfer-summary ${state}">${titleMap[state] || 'Idle'}</div>
+        <div class="transfer-note">${info.summary || 'Waiting for updates...'}</div>
+        <div class="transfer-grid">
+            ${renderRepoCard('Trigger Source: Bridge', info.bridge, '#a371f7')}
+            ${renderRepoCard('Target Repo Head', info.target, '#58a6ff')}
+            ${renderPullPushCard('Pull Activity', info.pulled, '#58a6ff')}
+            ${renderPullPushCard('Push Activity', info.pushed, '#3fb950')}
+            ${renderStatusCard(info)}
+            <div class="transfer-card">
+                <h3>Detected Trigger</h3>
+                <dl class="transfer-meta">
+                    ${formatMetaRow('Reason', info.trigger)}
+                    ${formatMetaRow('Updated', info.updated_at ? new Date(info.updated_at).toLocaleString() : '—')}
+                    ${formatMetaRow('Monitoring', monitoring ? 'ON' : 'OFF')}
+                </dl>
+            </div>
+        </div>`;
 }
 
 function renderHistory(history) {
@@ -722,6 +914,7 @@ async function init() {
             if (data.last_result && data.last_result.output) {
                 document.getElementById('outputArea').textContent = data.last_result.output;
             }
+            renderTransferInfo(data.transfer_info, data.monitoring, data.running);
             renderPollStatus(data.poll_status, data.monitoring);
             updateMonitorUI(data.monitoring);
             renderHistory(data.history);
