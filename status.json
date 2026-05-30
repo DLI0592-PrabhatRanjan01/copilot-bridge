@@ -11,7 +11,7 @@
   ],
   "timestamp": "2026-05-30T20:30:35.635123",
   "message": "Output ready (FAILED)",
-  "nocopo_step": "detect",
-  "nocopo_message": "Manual trigger from NOCOPO dashboard",
-  "nocopo_updated_at": "2026-05-30T20:33:29.049808"
+  "nocopo_step": "pull",
+  "nocopo_message": "Pulling naukri-automation...",
+  "nocopo_updated_at": "2026-05-30T20:33:30.870486"
 }
