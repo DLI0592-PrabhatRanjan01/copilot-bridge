@@ -10,5 +10,8 @@
     "pull"
   ],
   "timestamp": "2026-05-30T20:30:35.635123",
-  "message": "Output ready (FAILED)"
+  "message": "Output ready (FAILED)",
+  "nocopo_step": "detect",
+  "nocopo_message": "Manual trigger from NOCOPO dashboard",
+  "nocopo_updated_at": "2026-05-30T20:33:29.049808"
 }
