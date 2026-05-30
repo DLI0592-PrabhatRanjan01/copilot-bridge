@@ -1,29 +1,6 @@
-=== Target: naukri-automation ===
-=== Run Mode: manual ===
-=== Repo Cloned At: c:\Users\prabh\naukri-automation\naukri-automation ===
-=== Python Interpreter: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe ===
-=== Timestamp: 2026-05-30T20:27:45.883239 ===
-
-=== OUTPUT ===
 === Working Dir: c:\Users\prabh\naukri-automation\naukri-automation ===
 === Commands ===
-  cd c:\Users\prabh\naukri-automation\frontend
-  npm i
-  npm start
+  cd c:\Users\prabh\naukri-automation\backend && mvn spring-boot:run
+  cd c:\Users\prabh\naukri-automation\frontend && npm start
 
-[STDERR] At line:1 char:46
-+ cd c:\Users\prabh\naukri-automation\frontend && npm i && npm start
-+                                              ~~
-The token '&&' is not a valid statement separator in this version.
-At line:1 char:55
-+ cd c:\Users\prabh\naukri-automation\frontend && npm i && npm start
-+                                                       ~~
-The token '&&' is not a valid statement separator in this version.
-    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
-    + FullyQualifiedErrorId : InvalidEndOfLine
- 
-
---- Exit Code: 1 ---
-
-=== EXIT CODE: 1 ===
-=== STATUS: FAILED ===
+[TIMEOUT] Commands timed out after 120s

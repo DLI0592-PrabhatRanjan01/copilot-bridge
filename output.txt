@@ -1,23 +1,6 @@
-=== Target: naukri-automation ===
-=== Run Mode: auto ===
-=== Repo Cloned At: c:\Users\prabh\naukri-automation\naukri-automation ===
-=== Python Interpreter: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe ===
-=== Timestamp: 2026-05-30T20:36:38.015281 ===
-=== Detected: backend(springboot), frontend(react) ===
+=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation ===
+=== Commands ===
+  cd c:\Users\prabh\naukri-automation\backend && mvn spring-boot:run
+  cd c:\Users\prabh\naukri-automation\frontend && npm start
 
-=== OUTPUT ===
-=== Service: backend (springboot) ===
-=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation\backend ===
-=== Command: mvn spring-boot:run ===
-[STDERR] [WinError 2] The system cannot find the file specified
-=== Exit: -1 (ERROR) ===
-
-=== Service: frontend (react) ===
-=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation\frontend ===
-=== Command: npm run build ===
-[STDERR] [WinError 2] The system cannot find the file specified
-=== Exit: -1 (ERROR) ===
-
-
-=== EXIT CODE: -1 ===
-=== STATUS: ERROR ===
+[TIMEOUT] Commands timed out after 120s
