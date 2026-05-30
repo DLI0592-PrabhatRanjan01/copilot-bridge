@@ -7,7 +7,7 @@
   "skip_steps": [],
   "timestamp": "2026-05-30T19:18:25.064025",
   "message": "Output ready (ERROR)",
-  "nocopo_step": "run",
-  "nocopo_message": "Running command 1/5: cd c:\\Users\\prabh\\naukri-automation\\backend",
-  "nocopo_updated_at": "2026-05-30T19:20:59.958394"
+  "nocopo_step": "capture",
+  "nocopo_message": "Capturing output...",
+  "nocopo_updated_at": "2026-05-30T19:21:01.397983"
 }
