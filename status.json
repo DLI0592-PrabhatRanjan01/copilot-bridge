@@ -11,7 +11,7 @@
   "request_type": "output",
   "modules_command": "",
   "message": "Code pushed from naukri-automation",
-  "nocopo_step": "install",
-  "nocopo_message": "Installing backend (springboot)...",
-  "nocopo_updated_at": "2026-05-30T18:42:31.781086"
+  "nocopo_step": "detect",
+  "nocopo_message": "COPO trigger: iteration 1",
+  "nocopo_updated_at": "2026-05-30T18:42:46.205472"
 }
