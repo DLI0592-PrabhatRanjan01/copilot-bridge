@@ -12,7 +12,7 @@
   "request_type": "output",
   "modules_command": "",
   "message": "Code pushed from naukri-automation",
-  "nocopo_step": "run",
-  "nocopo_message": "Running chained commands...",
-  "nocopo_updated_at": "2026-05-31T00:52:55.152026"
+  "nocopo_step": "capture",
+  "nocopo_message": "Capturing output...",
+  "nocopo_updated_at": "2026-05-31T00:53:29.353034"
 }
