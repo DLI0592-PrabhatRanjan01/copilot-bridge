@@ -7,7 +7,7 @@
   "skip_steps": [],
   "timestamp": "2026-05-30T20:36:39.389574",
   "message": "Output ready (ERROR)",
-  "nocopo_step": "detect",
-  "nocopo_message": "Manual trigger from NOCOPO dashboard",
-  "nocopo_updated_at": "2026-05-30T20:39:44.121661"
+  "nocopo_step": "pull",
+  "nocopo_message": "Pulling naukri-automation...",
+  "nocopo_updated_at": "2026-05-30T20:39:45.663276"
 }
