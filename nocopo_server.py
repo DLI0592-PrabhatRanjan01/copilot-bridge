@@ -322,6 +322,71 @@ def format_subprocess_output(command, stdout, stderr, exit_code):
     return "\n".join(parts)
 
 
+def run_process_live(cmd, cwd, step_id, all_outputs, timeout_sec, shell=False):
+    """Run a process and stream stdout/stderr line-by-line into the step output in real-time.
+    Returns (exit_code, run_status).
+    """
+    line_lock = threading.Lock()
+    line_count = [0]
+
+    def drain(stream, prefix=""):
+        for raw_line in iter(stream.readline, ""):
+            line = raw_line.rstrip("\r\n")
+            if not line:
+                continue
+            entry = f"{prefix}{line}" if prefix else line
+            with line_lock:
+                all_outputs.append(entry)
+                line_count[0] += 1
+                # Append one line at a time so dashboard sees it immediately
+                set_step(step_id, "running", f"Running... ({line_count[0]} lines)", entry)
+        try:
+            stream.close()
+        except Exception:
+            pass
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=cwd,
+            shell=shell,
+            bufsize=1,
+        )
+        t_out = threading.Thread(target=drain, args=(proc.stdout, ""), daemon=True)
+        t_err = threading.Thread(target=drain, args=(proc.stderr, "[STDERR] "), daemon=True)
+        t_out.start()
+        t_err.start()
+        try:
+            proc.wait(timeout=timeout_sec)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            try:
+                proc.wait(timeout=5)
+            except Exception:
+                pass
+            timeout_msg = f"[TIMEOUT] Process timed out after {timeout_sec}s"
+            all_outputs.append(timeout_msg)
+            set_step(step_id, "running", f"Timed out after {timeout_sec}s", timeout_msg)
+            return -1, "TIMEOUT"
+        t_out.join(timeout=5)
+        t_err.join(timeout=5)
+        exit_code = proc.returncode
+        return exit_code, "SUCCESS" if exit_code == 0 else "FAILED"
+    except FileNotFoundError as e:
+        msg = f"[ERROR] Command not found: {e}"
+        all_outputs.append(msg)
+        set_step(step_id, "running", "Command not found", msg)
+        return -1, "ERROR"
+    except Exception as e:
+        msg = f"[ERROR] {str(e)}"
+        all_outputs.append(msg)
+        set_step(step_id, "running", "Error", msg)
+        return -1, "ERROR"
+
+
 def parse_manual_commands(run_command):
     raw = (run_command or "").strip()
     if not raw:
@@ -582,15 +647,16 @@ def _detect_all_in_dir(project_dir, name):
     return results
 
 
-def run_service(service, timeout_sec, capture_server_output=True):
+def run_service(service, timeout_sec, capture_server_output=True, step_id=None, all_outputs=None):
     """Run a single service and capture output.
     For servers (is_server=True): start, wait for startup, capture initial output, then kill.
-    For scripts: run to completion.
+    For scripts: run to completion with live output streaming when step_id is provided.
     Returns (exit_code, stdout, stderr, run_status)
     """
     cmd = service["run_cmd"]
     cwd = service["dir"]
     is_server = service.get("is_server", False)
+    live_outputs = all_outputs if all_outputs is not None else []
 
     if is_server and capture_server_output:
         # For servers: start process, wait for startup, capture output, kill
@@ -622,17 +688,21 @@ def run_service(service, timeout_sec, capture_server_output=True):
         except Exception as e:
             return -1, "", str(e), "ERROR"
     else:
-        # For scripts: run to completion
-        try:
-            proc = subprocess.run(
-                cmd, capture_output=True, text=True,
-                timeout=timeout_sec, cwd=cwd
-            )
-            return proc.returncode, proc.stdout, proc.stderr, "SUCCESS" if proc.returncode == 0 else "FAILED"
-        except subprocess.TimeoutExpired:
-            return -1, "", f"TIMEOUT after {timeout_sec}s", "TIMEOUT"
-        except Exception as e:
-            return -1, "", str(e), "ERROR"
+        # For scripts: stream output live if step_id provided, otherwise collect
+        if step_id:
+            exit_code, run_status = run_process_live(cmd, cwd, step_id, live_outputs, timeout_sec)
+            return exit_code, "", "", run_status
+        else:
+            try:
+                proc = subprocess.run(
+                    cmd, capture_output=True, text=True,
+                    timeout=timeout_sec, cwd=cwd
+                )
+                return proc.returncode, proc.stdout, proc.stderr, "SUCCESS" if proc.returncode == 0 else "FAILED"
+            except subprocess.TimeoutExpired:
+                return -1, "", f"TIMEOUT after {timeout_sec}s", "TIMEOUT"
+            except Exception as e:
+                return -1, "", str(e), "ERROR"
 
 
 def install_service(service):
@@ -1211,40 +1281,16 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 set_step("run", "running", f"Running {len(command_lines)} commands sequentially...")
                 update_bridge_progress("run", "Running chained commands...")
 
-                try:
-                    if sys.platform == "win32":
-                        # Use cmd.exe for Windows && support AND shell=True for PATH (npm, mvn, etc)
-                        cmd_args = ["cmd", "/d", "/s", "/c", chained_cmd]
-                        proc = subprocess.run(
-                            cmd_args, capture_output=True, text=True,
-                            timeout=timeout_sec, cwd=repo_dir, shell=True
-                        )
-                    else:
-                        # Use shell for Linux/Mac
-                        proc = subprocess.run(
-                            chained_cmd, capture_output=True, text=True,
-                            timeout=timeout_sec, cwd=repo_dir, shell=True
-                        )
-
-                    exit_code = proc.returncode
-                    if proc.stdout:
-                        all_outputs.append(proc.stdout)
-                    if proc.stderr:
-                        all_outputs.append(f"[STDERR] {proc.stderr}")
-                    all_outputs.append(f"--- Exit Code: {exit_code} ---")
-
-                    if exit_code != 0:
-                        run_status = "FAILED"
-                    else:
-                        run_status = "SUCCESS"
-                except subprocess.TimeoutExpired:
-                    all_outputs.append(f"[TIMEOUT] Commands timed out after {timeout_sec}s")
-                    exit_code = -1
-                    run_status = "TIMEOUT"
-                except Exception as e:
-                    all_outputs.append(f"[ERROR] {str(e)}")
-                    exit_code = -1
-                    run_status = "ERROR"
+                if sys.platform == "win32":
+                    cmd_args = ["cmd", "/d", "/s", "/c", chained_cmd]
+                    exit_code, run_status = run_process_live(
+                        cmd_args, repo_dir, "run", all_outputs, timeout_sec, shell=True
+                    )
+                else:
+                    exit_code, run_status = run_process_live(
+                        chained_cmd, repo_dir, "run", all_outputs, timeout_sec, shell=True
+                    )
+                all_outputs.append(f"--- Exit Code: {exit_code} ---")
 
             full_cmd_output = "\n".join(all_outputs)
             if run_status == "FAILED":
@@ -1271,25 +1317,10 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             set_step("run", "running", f"Running: {full_cmd_str}")
             all_outputs.append(f"=== Working Dir: {repo_dir} ===")
             all_outputs.append(f"=== Command: {full_cmd_str} ===")
-            try:
-                proc = subprocess.run(
-                    cmd_parts, capture_output=True, text=True,
-                    timeout=timeout_sec, cwd=repo_dir
-                )
-                exit_code = proc.returncode
-                if proc.stdout:
-                    all_outputs.append(proc.stdout)
-                if proc.stderr:
-                    all_outputs.append(f"[STDERR] {proc.stderr}")
-                run_status = "SUCCESS" if exit_code == 0 else "FAILED"
-            except subprocess.TimeoutExpired:
-                exit_code = -1
-                all_outputs.append(f"TIMEOUT after {timeout_sec}s")
-                run_status = "TIMEOUT"
-            except Exception as e:
-                exit_code = -1
-                all_outputs.append(str(e))
-                run_status = "ERROR"
+            set_step("run", "running", f"Running: {full_cmd_str}", f"=== Command: {full_cmd_str} ===")
+            exit_code, run_status = run_process_live(
+                cmd_parts, repo_dir, "run", all_outputs, timeout_sec
+            )
 
         elif detected_services:
             # Auto mode: run detected services
@@ -1304,10 +1335,13 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 set_step("run", "running", f"[{i+1}/{len(detected_services)}] Running {svc_label} in {svc_dir}")
                 update_bridge_progress("run", f"Running {svc_label} in {svc_dir}")
 
-                svc_exit, svc_stdout, svc_stderr, svc_status = run_service(svc, timeout_sec)
                 all_outputs.append(f"=== Service: {svc_label} ===")
                 all_outputs.append(f"=== Working Dir: {svc_dir} ===")
                 all_outputs.append(f"=== Command: {full_cmd} ===")
+                set_step("run", "running", f"[{i+1}/{len(detected_services)}] Running {svc_label}", f"=== {svc_label} ===")
+                svc_exit, svc_stdout, svc_stderr, svc_status = run_service(
+                    svc, timeout_sec, step_id="run", all_outputs=all_outputs
+                )
                 if svc_stdout:
                     all_outputs.append(svc_stdout)
                 if svc_stderr:
@@ -1341,25 +1375,10 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             set_step("run", "running", f"Running: {full_cmd_str}")
             all_outputs.append(f"=== Working Dir: {repo_dir} ===")
             all_outputs.append(f"=== Command: {full_cmd_str} ===")
-            try:
-                proc = subprocess.run(
-                    cmd_parts, capture_output=True, text=True,
-                    timeout=timeout_sec, cwd=repo_dir
-                )
-                exit_code = proc.returncode
-                if proc.stdout:
-                    all_outputs.append(proc.stdout)
-                if proc.stderr:
-                    all_outputs.append(f"[STDERR] {proc.stderr}")
-                run_status = "SUCCESS" if exit_code == 0 else "FAILED"
-            except subprocess.TimeoutExpired:
-                exit_code = -1
-                all_outputs.append(f"TIMEOUT after {timeout_sec}s")
-                run_status = "TIMEOUT"
-            except Exception as e:
-                exit_code = -1
-                all_outputs.append(str(e))
-                run_status = "ERROR"
+            set_step("run", "running", f"Running: {full_cmd_str}", f"=== Command: {full_cmd_str} ===")
+            exit_code, run_status = run_process_live(
+                cmd_parts, repo_dir, "run", all_outputs, timeout_sec
+            )
 
         stdout = "\n".join(all_outputs)
         stderr = ""  # Already merged into stdout above
