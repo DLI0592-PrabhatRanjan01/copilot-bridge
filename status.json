@@ -13,6 +13,6 @@
   "modules_command": "",
   "message": "Code pushed from naukri-automation",
   "nocopo_step": "run",
-  "nocopo_message": "Auto-running: backend(springboot), frontend(react)",
-  "nocopo_updated_at": "2026-05-30T20:36:31.915987"
+  "nocopo_message": "Running backend (springboot) in c:\\Users\\prabh\\naukri-automation\\naukri-automation\\backend",
+  "nocopo_updated_at": "2026-05-30T20:36:33.655997"
 }
