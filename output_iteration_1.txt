@@ -2,7 +2,7 @@
 === Run Mode: manual ===
 === Repo Cloned At: c:\Users\prabh\naukri-automation ===
 === Python Interpreter: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe ===
-=== Timestamp: 2026-05-31T00:30:40.070776 ===
+=== Timestamp: 2026-05-31T00:53:30.523943 ===
 
 === OUTPUT ===
 === Working Dir: c:\Users\prabh\naukri-automation ===
@@ -54,17 +54,17 @@
   '  |____| .__|_| |_|_| |_\__, | / / / /
  =========|_|==============|___/=/_/_/_/
  :: Spring Boot ::                (v3.2.5)
-2026-05-31T00:30:30.301+05:30  INFO 38140 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : Starting NaukriAutomationApplication using Java 22.0.2 with PID 38140 (C:\Users\prabh\naukri-automation\backend\target\classes started by prabh in c:\Users\prabh\naukri-automation\backend)
-2026-05-31T00:30:30.303+05:30  INFO 38140 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : No active profile set, falling back to 1 default profile: "default"
-2026-05-31T00:30:30.941+05:30  INFO 38140 --- [naukri-automation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-05-31T00:30:31.012+05:30  INFO 38140 --- [naukri-automation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 62 ms. Found 5 JPA repository interfaces.
-2026-05-31T00:30:31.593+05:30  INFO 38140 --- [naukri-automation] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 4000 (http)
-2026-05-31T00:30:31.610+05:30  INFO 38140 --- [naukri-automation] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-05-31T00:30:31.610+05:30  INFO 38140 --- [naukri-automation] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.20]
-2026-05-31T00:30:31.717+05:30  INFO 38140 --- [naukri-automation] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
-2026-05-31T00:30:31.718+05:30  INFO 38140 --- [naukri-automation] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1372 ms
-2026-05-31T00:30:31.747+05:30  INFO 38140 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-05-31T00:30:32.876+05:30 ERROR 38140 --- [naukri-automation] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Exception during pool initialization.
+2026-05-31T00:53:19.632+05:30  INFO 37904 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : Starting NaukriAutomationApplication using Java 22.0.2 with PID 37904 (C:\Users\prabh\naukri-automation\backend\target\classes started by prabh in c:\Users\prabh\naukri-automation\backend)
+2026-05-31T00:53:19.634+05:30  INFO 37904 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : No active profile set, falling back to 1 default profile: "default"
+2026-05-31T00:53:20.500+05:30  INFO 37904 --- [naukri-automation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-05-31T00:53:20.583+05:30  INFO 37904 --- [naukri-automation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 72 ms. Found 5 JPA repository interfaces.
+2026-05-31T00:53:21.315+05:30  INFO 37904 --- [naukri-automation] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 4000 (http)
+2026-05-31T00:53:21.339+05:30  INFO 37904 --- [naukri-automation] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-05-31T00:53:21.339+05:30  INFO 37904 --- [naukri-automation] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.20]
+2026-05-31T00:53:21.467+05:30  INFO 37904 --- [naukri-automation] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-05-31T00:53:21.468+05:30  INFO 37904 --- [naukri-automation] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1777 ms
+2026-05-31T00:53:21.498+05:30  INFO 37904 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-05-31T00:53:22.726+05:30 ERROR 37904 --- [naukri-automation] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Exception during pool initialization.
 org.h2.jdbc.JdbcSQLNonTransientConnectionException: Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:690) ~[h2-2.2.224.jar:2.2.224]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489) ~[h2-2.2.224.jar:2.2.224]
@@ -168,12 +168,12 @@ Caused by: org.h2.mvstore.MVStoreException: The file is locked: C:/Users/prabh/n
 	at org.h2.mvstore.MVStore$Builder.open(MVStore.java:2035) ~[h2-2.2.224.jar:2.2.224]
 	at org.h2.mvstore.db.Store.<init>(Store.java:133) ~[h2-2.2.224.jar:2.2.224]
 	... 88 common frames omitted
-2026-05-31T00:30:33.082+05:30  INFO 38140 --- [naukri-automation] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
-2026-05-31T00:30:33.310+05:30  INFO 38140 --- [naukri-automation] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
-2026-05-31T00:30:33.419+05:30  INFO 38140 --- [naukri-automation] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
-2026-05-31T00:30:33.845+05:30  INFO 38140 --- [naukri-automation] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-05-31T00:30:33.890+05:30  INFO 38140 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-05-31T00:30:34.917+05:30 ERROR 38140 --- [naukri-automation] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Exception during pool initialization.
+2026-05-31T00:53:23.021+05:30  INFO 37904 --- [naukri-automation] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-05-31T00:53:23.189+05:30  INFO 37904 --- [naukri-automation] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-05-31T00:53:23.278+05:30  INFO 37904 --- [naukri-automation] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-05-31T00:53:24.030+05:30  INFO 37904 --- [naukri-automation] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-05-31T00:53:24.086+05:30  INFO 37904 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-05-31T00:53:25.126+05:30 ERROR 37904 --- [naukri-automation] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Exception during pool initialization.
 org.h2.jdbc.JdbcSQLNonTransientConnectionException: Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:690) ~[h2-2.2.224.jar:2.2.224]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489) ~[h2-2.2.224.jar:2.2.224]
@@ -242,7 +242,7 @@ Caused by: org.h2.mvstore.MVStoreException: The file is locked: C:/Users/prabh/n
 	at org.h2.mvstore.MVStore$Builder.open(MVStore.java:2035) ~[h2-2.2.224.jar:2.2.224]
 	at org.h2.mvstore.db.Store.<init>(Store.java:133) ~[h2-2.2.224.jar:2.2.224]
 	... 53 common frames omitted
-2026-05-31T00:30:34.922+05:30  WARN 38140 --- [naukri-automation] [           main] o.h.e.j.e.i.JdbcEnvironmentInitiator     : HHH000342: Could not obtain connection to query metadata
+2026-05-31T00:53:25.141+05:30  WARN 37904 --- [naukri-automation] [           main] o.h.e.j.e.i.JdbcEnvironmentInitiator     : HHH000342: Could not obtain connection to query metadata
 java.lang.NullPointerException: Cannot invoke "org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(java.sql.SQLException, String)" because the return value of "org.hibernate.resource.transaction.backend.jdbc.internal.JdbcIsolationDelegate.sqlExceptionHelper()" is null
 	at org.hibernate.resource.transaction.backend.jdbc.internal.JdbcIsolationDelegate.delegateWork(JdbcIsolationDelegate.java:116) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
 	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.getJdbcEnvironmentUsingJdbcMetadata(JdbcEnvironmentInitiator.java:276) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
@@ -281,10 +281,10 @@ java.lang.NullPointerException: Cannot invoke "org.hibernate.engine.jdbc.spi.Sql
 	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-3.2.5.jar:3.2.5]
 	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1343) ~[spring-boot-3.2.5.jar:3.2.5]
 	at com.naukri.automation.NaukriAutomationApplication.main(NaukriAutomationApplication.java:11) ~[classes/:na]
-2026-05-31T00:30:34.954+05:30  WARN 38140 --- [naukri-automation] [           main] org.hibernate.orm.deprecation            : HHH90000025: H2Dialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
-2026-05-31T00:30:37.060+05:30  INFO 38140 --- [naukri-automation] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-05-31T00:30:37.093+05:30  INFO 38140 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-05-31T00:30:38.131+05:30 ERROR 38140 --- [naukri-automation] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Exception during pool initialization.
+2026-05-31T00:53:25.201+05:30  WARN 37904 --- [naukri-automation] [           main] org.hibernate.orm.deprecation            : HHH90000025: H2Dialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-05-31T00:53:27.686+05:30  INFO 37904 --- [naukri-automation] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-05-31T00:53:27.721+05:30  INFO 37904 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-05-31T00:53:28.756+05:30 ERROR 37904 --- [naukri-automation] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Exception during pool initialization.
 org.h2.jdbc.JdbcSQLNonTransientConnectionException: Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:690) ~[h2-2.2.224.jar:2.2.224]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489) ~[h2-2.2.224.jar:2.2.224]
@@ -357,14 +357,14 @@ Caused by: org.h2.mvstore.MVStoreException: The file is locked: C:/Users/prabh/n
 	at org.h2.mvstore.MVStore$Builder.open(MVStore.java:2035) ~[h2-2.2.224.jar:2.2.224]
 	at org.h2.mvstore.db.Store.<init>(Store.java:133) ~[h2-2.2.224.jar:2.2.224]
 	... 57 common frames omitted
-2026-05-31T00:30:38.136+05:30  WARN 38140 --- [naukri-automation] [           main] o.h.engine.jdbc.spi.SqlExceptionHelper   : SQL Error: 90020, SQLState: 90020
-2026-05-31T00:30:38.137+05:30 ERROR 38140 --- [naukri-automation] [           main] o.h.engine.jdbc.spi.SqlExceptionHelper   : Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]
-2026-05-31T00:30:38.147+05:30 ERROR 38140 --- [naukri-automation] [           main] j.LocalContainerEntityManagerFactoryBean : Failed to initialize JPA EntityManagerFactory: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]] [n/a]
-2026-05-31T00:30:38.148+05:30  WARN 38140 --- [naukri-automation] [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/autoconfigure/orm/jpa/HibernateJpaConfiguration.class]: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]] [n/a]
-2026-05-31T00:30:38.151+05:30  INFO 38140 --- [naukri-automation] [           main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
-2026-05-31T00:30:38.175+05:30  INFO 38140 --- [naukri-automation] [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
+2026-05-31T00:53:28.773+05:30  WARN 37904 --- [naukri-automation] [           main] o.h.engine.jdbc.spi.SqlExceptionHelper   : SQL Error: 90020, SQLState: 90020
+2026-05-31T00:53:28.773+05:30 ERROR 37904 --- [naukri-automation] [           main] o.h.engine.jdbc.spi.SqlExceptionHelper   : Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]
+2026-05-31T00:53:28.788+05:30 ERROR 37904 --- [naukri-automation] [           main] j.LocalContainerEntityManagerFactoryBean : Failed to initialize JPA EntityManagerFactory: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]] [n/a]
+2026-05-31T00:53:28.789+05:30  WARN 37904 --- [naukri-automation] [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/autoconfigure/orm/jpa/HibernateJpaConfiguration.class]: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]] [n/a]
+2026-05-31T00:53:28.795+05:30  INFO 37904 --- [naukri-automation] [           main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2026-05-31T00:53:28.827+05:30  INFO 37904 --- [naukri-automation] [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
 Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
-2026-05-31T00:30:38.210+05:30 ERROR 38140 --- [naukri-automation] [           main] o.s.boot.SpringApplication               : Application run failed
+2026-05-31T00:53:28.884+05:30 ERROR 37904 --- [naukri-automation] [           main] o.s.boot.SpringApplication               : Application run failed
 org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/autoconfigure/orm/jpa/HibernateJpaConfiguration.class]: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]] [n/a]
 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1786) ~[spring-beans-6.1.6.jar:6.1.6]
 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:600) ~[spring-beans-6.1.6.jar:6.1.6]
@@ -453,8 +453,8 @@ Caused by: org.h2.mvstore.MVStoreException: The file is locked: C:/Users/prabh/n
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD FAILURE
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time:  23.492 s
-[INFO] Finished at: 2026-05-31T00:30:38+05:30
+[INFO] Total time:  30.024 s
+[INFO] Finished at: 2026-05-31T00:53:28+05:30
 [INFO] ------------------------------------------------------------------------
 [ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:3.2.5:run (default-cli) on project naukri-automation: Process terminated with exit code: 1 -> [Help 1]
 [ERROR] 
