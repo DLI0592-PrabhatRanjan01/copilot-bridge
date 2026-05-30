@@ -1,23 +1,88 @@
 === Target: naukri-automation ===
-=== Run Mode: auto ===
+=== Run Mode: manual ===
 === Repo Cloned At: c:\Users\prabh\naukri-automation ===
 === Python Interpreter: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe ===
-=== Timestamp: 2026-05-30T23:49:17.799853 ===
-=== Detected: backend(springboot), frontend(react) ===
+=== Timestamp: 2026-05-31T00:03:25.307328 ===
 
 === OUTPUT ===
-=== Service: backend (springboot) ===
-=== Working Dir: c:\Users\prabh\naukri-automation\backend ===
-=== Command: mvn spring-boot:run ===
-[STDERR] [WinError 2] The system cannot find the file specified
-=== Exit: -1 (ERROR) ===
+=== Working Dir: c:\Users\prabh\naukri-automation ===
+=== Commands ===
+  cd c:\Users\prabh\naukri-automation\backend
+  mvn spring-boot:run
+  cd c:\Users\prabh\naukri-automation\frontend\src
+  npm start
 
-=== Service: frontend (react) ===
-=== Working Dir: c:\Users\prabh\naukri-automation\frontend ===
-=== Command: npm run build ===
-[STDERR] [WinError 2] The system cannot find the file specified
-=== Exit: -1 (ERROR) ===
-
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------------< com.naukri:naukri-automation >--------------------
+[INFO] Building Naukri Automation 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.2.5:run (default-cli) > test-compile @ naukri-automation >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ naukri-automation ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 0 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ naukri-automation ---
+[INFO] Changes detected - recompiling the module! :input tree
+[INFO] Compiling 35 source files with javac [debug release 17] to target\classes
+[INFO] Annotation processing is enabled because one or more processors were found
+  on the class path. A future release of javac may disable annotation processing
+  unless at least one processor is specified by name (-processor), or a search
+  path is specified (--processor-path, --processor-module-path), or annotation
+  processing is enabled explicitly (-proc:only, -proc:full).
+  Use -Xlint:-options to suppress this message.
+  Use -proc:none to disable annotation processing.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ naukri-automation ---
+[INFO] skip non existing resourceDirectory c:\Users\prabh\naukri-automation\backend\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ naukri-automation ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] <<< spring-boot:3.2.5:run (default-cli) < test-compile @ naukri-automation <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:3.2.5:run (default-cli) @ naukri-automation ---
+[INFO] Attaching agents: []
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.5)
+2026-05-31T00:01:38.515+05:30  INFO 29828 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : Starting NaukriAutomationApplication using Java 22.0.2 with PID 29828 (C:\Users\prabh\naukri-automation\backend\target\classes started by prabh in c:\Users\prabh\naukri-automation\backend)
+2026-05-31T00:01:38.516+05:30  INFO 29828 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : No active profile set, falling back to 1 default profile: "default"
+2026-05-31T00:01:39.024+05:30  INFO 29828 --- [naukri-automation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-05-31T00:01:39.108+05:30  INFO 29828 --- [naukri-automation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 77 ms. Found 5 JPA repository interfaces.
+2026-05-31T00:01:39.707+05:30  INFO 29828 --- [naukri-automation] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 4000 (http)
+2026-05-31T00:01:39.723+05:30  INFO 29828 --- [naukri-automation] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-05-31T00:01:39.723+05:30  INFO 29828 --- [naukri-automation] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.20]
+2026-05-31T00:01:39.871+05:30  INFO 29828 --- [naukri-automation] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-05-31T00:01:39.873+05:30  INFO 29828 --- [naukri-automation] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1323 ms
+2026-05-31T00:01:39.915+05:30  INFO 29828 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-05-31T00:01:40.189+05:30  INFO 29828 --- [naukri-automation] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn0: url=jdbc:h2:file:./data/naukri-db user=SA
+2026-05-31T00:01:40.191+05:30  INFO 29828 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-05-31T00:01:40.198+05:30  INFO 29828 --- [naukri-automation] [           main] o.s.b.a.h2.H2ConsoleAutoConfiguration    : H2 console available at '/h2-console'. Database available at 'jdbc:h2:file:./data/naukri-db'
+2026-05-31T00:01:40.347+05:30  INFO 29828 --- [naukri-automation] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-05-31T00:01:40.411+05:30  INFO 29828 --- [naukri-automation] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-05-31T00:01:40.446+05:30  INFO 29828 --- [naukri-automation] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-05-31T00:01:40.944+05:30  INFO 29828 --- [naukri-automation] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-05-31T00:01:41.017+05:30  WARN 29828 --- [naukri-automation] [           main] org.hibernate.orm.deprecation            : HHH90000025: H2Dialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-05-31T00:01:43.576+05:30  INFO 29828 --- [naukri-automation] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-05-31T00:01:43.734+05:30  INFO 29828 --- [naukri-automation] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-05-31T00:01:44.310+05:30  INFO 29828 --- [naukri-automation] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-05-31T00:01:46.214+05:30  WARN 29828 --- [naukri-automation] [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-05-31T00:01:47.571+05:30  INFO 29828 --- [naukri-automation] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 4000 (http) with context path ''
+2026-05-31T00:01:47.585+05:30  INFO 29828 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : Started NaukriAutomationApplication in 9.473 seconds (process running for 9.925)
+2026-05-31T00:02:19.245+05:30  INFO 29828 --- [naukri-automation] [nio-4000-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-05-31T00:02:19.246+05:30  INFO 29828 --- [naukri-automation] [nio-4000-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-05-31T00:02:19.247+05:30  INFO 29828 --- [naukri-automation] [nio-4000-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+[TIMEOUT] Process timed out after 120s
+--- Exit Code: -1 ---
 
 === EXIT CODE: -1 ===
-=== STATUS: ERROR ===
+=== STATUS: TIMEOUT ===
