@@ -13,6 +13,6 @@
   "modules_command": "",
   "message": "Code pushed from naukri-automation",
   "nocopo_step": "install",
-  "nocopo_message": "Installing backend (springboot)...",
-  "nocopo_updated_at": "2026-05-30T20:35:23.410073"
+  "nocopo_message": "Installing frontend (react)...",
+  "nocopo_updated_at": "2026-05-30T20:36:16.657361"
 }
