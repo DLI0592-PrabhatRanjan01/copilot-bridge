@@ -12,7 +12,7 @@
   "request_type": "output",
   "modules_command": "",
   "message": "Code pushed from naukri-automation",
-  "nocopo_step": "install",
-  "nocopo_message": "Installing frontend (react)...",
-  "nocopo_updated_at": "2026-05-30T20:13:53.134324"
+  "nocopo_step": "run",
+  "nocopo_message": "Running code...",
+  "nocopo_updated_at": "2026-05-30T20:14:00.922650"
 }
