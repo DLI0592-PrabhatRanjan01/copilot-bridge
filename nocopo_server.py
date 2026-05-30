@@ -1208,9 +1208,8 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
 
                 try:
                     if sys.platform == "win32":
-                        # Use PowerShell for Windows to handle && properly
-                        cmd_args = ["powershell", "-NoProfile", "-NonInteractive",
-                                   "-ExecutionPolicy", "Bypass", "-Command", chained_cmd]
+                        # Use cmd.exe because older PowerShell versions do not support &&
+                        cmd_args = ["cmd", "/d", "/s", "/c", chained_cmd]
                         proc = subprocess.run(
                             cmd_args, capture_output=True, text=True,
                             timeout=timeout_sec, cwd=repo_dir, shell=False
@@ -1715,7 +1714,7 @@ class NocopoHandler(BaseHTTPRequestHandler):
 
                     if sys.platform == "win32":
                         proc = subprocess.run(
-                            ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", effective_cmd],
+                            ["cmd", "/d", "/s", "/c", effective_cmd],
                             capture_output=True, text=True,
                             timeout=t_sec, cwd=working_dir, shell=False
                         )
