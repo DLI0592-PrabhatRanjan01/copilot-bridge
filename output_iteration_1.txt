@@ -1,19 +1,19 @@
 === Target: naukri-automation ===
 === Run Mode: auto ===
-=== Repo Cloned At: C:\Users\prabh\AppData\Local\Temp\nocopo_repos\naukri-automation ===
+=== Repo Cloned At: c:\Users\prabh\naukri-automation\naukri-automation ===
 === Python Interpreter: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe ===
-=== Timestamp: 2026-05-30T19:18:23.693811 ===
+=== Timestamp: 2026-05-30T19:48:40.528286 ===
 === Detected: backend(springboot), frontend(react) ===
 
 === OUTPUT ===
 === Service: backend (springboot) ===
-=== Working Dir: C:\Users\prabh\AppData\Local\Temp\nocopo_repos\naukri-automation\backend ===
+=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation\backend ===
 === Command: mvn spring-boot:run ===
 [STDERR] [WinError 2] The system cannot find the file specified
 === Exit: -1 (ERROR) ===
 
 === Service: frontend (react) ===
-=== Working Dir: C:\Users\prabh\AppData\Local\Temp\nocopo_repos\naukri-automation\frontend ===
+=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation\frontend ===
 === Command: npm run build ===
 [STDERR] [WinError 2] The system cannot find the file specified
 === Exit: -1 (ERROR) ===
