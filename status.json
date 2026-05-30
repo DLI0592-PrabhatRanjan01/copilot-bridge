@@ -7,7 +7,7 @@
   "skip_steps": [],
   "timestamp": "2026-05-30T19:18:25.064025",
   "message": "Output ready (ERROR)",
-  "nocopo_step": "install",
-  "nocopo_message": "Installing dependencies...",
-  "nocopo_updated_at": "2026-05-30T19:20:56.698529"
+  "nocopo_step": "run",
+  "nocopo_message": "Running code...",
+  "nocopo_updated_at": "2026-05-30T19:20:58.166312"
 }
