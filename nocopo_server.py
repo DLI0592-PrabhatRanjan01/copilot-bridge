@@ -234,6 +234,17 @@ def get_status_json():
     return None
 
 
+def clone_or_reuse_repo(repo_url, branch, repo_dir):
+    """Clone is temporarily disabled; only reuse an existing working directory."""
+    # NOTE: Clone is intentionally disabled for now because the current environment
+    # keeps failing on destination-path conflicts. Re-enable git clone here once
+    # the workspace provisioning is stable again.
+    if os.path.isdir(repo_dir) and os.listdir(repo_dir):
+        return True, "existing-dir", f"Clone disabled, using existing directory -> {repo_dir}"
+
+    return False, None, f"Clone disabled and no existing directory available: {repo_dir}"
+
+
 def summarize_status(status):
     if not status:
         return None
@@ -703,44 +714,25 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 capture_output=True, text=True, cwd=repo_dir, timeout=60
             )
             if result.returncode != 0:
-                shutil.rmtree(repo_dir, ignore_errors=True)
-                time.sleep(1)
-                result = subprocess.run(
-                    ["git", "clone", "--branch", branch, repo_url, repo_dir],
-                    capture_output=True, text=True, timeout=60
-                )
-                if result.returncode != 0:
-                    set_step("pull", "error", f"Clone failed: {result.stderr[:200]}")
-                    return {"success": False, "error": "Clone failed"}
-                pull_method = "clone"
-            set_step("pull", "done", f"Pulled latest → {repo_dir}")
+                ok, fallback_method, fallback_message = clone_or_reuse_repo(repo_url, branch, repo_dir)
+                if not ok:
+                    set_step("pull", "error", f"Pull failed and {fallback_message}")
+                    return {"success": False, "error": "Pull failed"}
+                pull_method = fallback_method
+                set_step("pull", "done", f"Pull failed, reusing existing directory -> {repo_dir}")
+            else:
+                set_step("pull", "done", f"Pulled latest -> {repo_dir}")
         else:
             if os.path.isdir(repo_dir) and os.listdir(repo_dir):
                 pull_method = "existing-dir"
-                set_step("pull", "done", f"Using existing directory → {repo_dir}")
+                set_step("pull", "done", f"Using existing directory -> {repo_dir}")
             else:
-                if os.path.exists(repo_dir):
-                    shutil.rmtree(repo_dir, ignore_errors=True)
-                set_step("pull", "running", f"Cloning into: {repo_dir}")
-                result = subprocess.run(
-                    ["git", "clone", "--branch", branch, repo_url, repo_dir],
-                    capture_output=True, text=True, timeout=60
-                )
-                if result.returncode != 0:
-                    clone_error = (result.stderr or result.stdout or "")[:200]
-                    if (
-                        os.path.isdir(repo_dir)
-                        and os.listdir(repo_dir)
-                        and "already exists and is not an empty directory" in (result.stderr or "")
-                    ):
-                        pull_method = "existing-dir"
-                        set_step("pull", "done", f"Clone skipped, using existing directory → {repo_dir}")
-                    else:
-                        set_step("pull", "error", f"Clone failed: {clone_error}")
-                        return {"success": False, "error": "Clone failed"}
-                else:
-                    pull_method = "clone"
-                    set_step("pull", "done", f"Cloned fresh → {repo_dir}")
+                ok, fallback_method, fallback_message = clone_or_reuse_repo(repo_url, branch, repo_dir)
+                if not ok:
+                    set_step("pull", "error", fallback_message)
+                    return {"success": False, "error": "Clone disabled"}
+                pull_method = fallback_method
+                set_step("pull", "done", fallback_message)
 
         nocopo_state["transfer_info"]["pulled"] = {
             "repo": target_repo,
