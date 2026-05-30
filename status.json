@@ -7,7 +7,7 @@
   "skip_steps": [],
   "timestamp": "2026-05-30T20:36:39.389574",
   "message": "Output ready (ERROR)",
-  "nocopo_step": "run",
-  "nocopo_message": "Running chained commands...",
-  "nocopo_updated_at": "2026-05-30T20:39:51.829676"
+  "nocopo_step": "push_output",
+  "nocopo_message": "Pushing output to bridge...",
+  "nocopo_updated_at": "2026-05-30T20:42:48.146582"
 }
