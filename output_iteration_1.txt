@@ -1,24 +1,23 @@
-=== Target: web-scraper ===
+=== Target: naukri-automation ===
 === Run Mode: auto ===
-=== Timestamp: 2026-05-27T22:47:52.538103 ===
-=== Detected: root(python) ===
+=== Repo Cloned At: C:\Users\prabh\AppData\Local\Temp\nocopo_repos\naukri-automation ===
+=== Python Interpreter: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe ===
+=== Timestamp: 2026-05-30T19:18:23.693811 ===
+=== Detected: backend(springboot), frontend(react) ===
 
 === OUTPUT ===
-=== Service: root (python) ===
-=== Command: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe scraper.py ===
-[STDERR] usage: scraper.py [-h] [--auto] [--discover-api] [--crawl-api] [--follow-api]
-                  [--click-all] [--crawl] [--render] [--html] [--css] [--js]
-                  [--forms] [--media] [--api] [--all] [--metadata] [--headers]
-                  [--method {GET,POST,PUT,DELETE,PATCH}] [--body BODY]
-                  [--header HEADER] [--depth DEPTH] [--max-pages MAX_PAGES]
-                  [--max-clicks MAX_CLICKS] [--workers WORKERS]
-                  [--delay DELAY] [--no-verify-ssl] [--paginate]
-                  [--output OUTPUT] [--format {json,csv,both}]
-                  url
-scraper.py: error: the following arguments are required: url
+=== Service: backend (springboot) ===
+=== Working Dir: C:\Users\prabh\AppData\Local\Temp\nocopo_repos\naukri-automation\backend ===
+=== Command: mvn spring-boot:run ===
+[STDERR] [WinError 2] The system cannot find the file specified
+=== Exit: -1 (ERROR) ===
 
-=== Exit: 2 (FAILED) ===
+=== Service: frontend (react) ===
+=== Working Dir: C:\Users\prabh\AppData\Local\Temp\nocopo_repos\naukri-automation\frontend ===
+=== Command: npm run build ===
+[STDERR] [WinError 2] The system cannot find the file specified
+=== Exit: -1 (ERROR) ===
 
 
-=== EXIT CODE: 2 ===
-=== STATUS: FAILED ===
+=== EXIT CODE: -1 ===
+=== STATUS: ERROR ===
