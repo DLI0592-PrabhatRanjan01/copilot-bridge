@@ -10,5 +10,8 @@
   "run_mode": "auto",
   "request_type": "output",
   "modules_command": "",
-  "message": "Code pushed from naukri-automation"
+  "message": "Code pushed from naukri-automation",
+  "nocopo_step": "detect",
+  "nocopo_message": "COPO trigger: iteration 1",
+  "nocopo_updated_at": "2026-05-30T18:40:43.339966"
 }
