@@ -7,7 +7,7 @@
   "skip_steps": [],
   "timestamp": "2026-05-30T20:25:50.848271",
   "message": "Output ready (ERROR)",
-  "nocopo_step": "pull",
-  "nocopo_message": "Pulling naukri-automation...",
-  "nocopo_updated_at": "2026-05-30T20:27:32.160289"
+  "nocopo_step": "install",
+  "nocopo_message": "Installing dependencies...",
+  "nocopo_updated_at": "2026-05-30T20:27:39.330399"
 }
