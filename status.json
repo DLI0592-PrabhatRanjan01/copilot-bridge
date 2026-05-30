@@ -8,6 +8,6 @@
   "timestamp": "2026-05-30T19:48:41.803507",
   "message": "Output ready (ERROR)",
   "nocopo_step": "run",
-  "nocopo_message": "Running command 4/5: npm i",
-  "nocopo_updated_at": "2026-05-30T19:50:16.489092"
+  "nocopo_message": "Running command 5/5: npm start",
+  "nocopo_updated_at": "2026-05-30T19:50:20.454756"
 }
