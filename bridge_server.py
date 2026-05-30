@@ -51,26 +51,31 @@ pipeline_state = {
 
 # Step definitions for the pipeline
 PIPELINE_STEPS = [
-    {"id": "scan", "label": "Scanning Local Changes", "system": "copo"},
-    {"id": "push", "label": "Pushing Code to GitHub", "system": "copo"},
-    {"id": "detect", "label": "Detecting Changes (NOCOPO)", "system": "nocopo"},
-    {"id": "pull", "label": "Pulling / Cloning Repo", "system": "nocopo"},
-    {"id": "install", "label": "Installing Dependencies", "system": "nocopo"},
-    {"id": "run", "label": "Running Code", "system": "nocopo"},
-    {"id": "capture", "label": "Capturing Output", "system": "nocopo"},
-    {"id": "push_output", "label": "Pushing Output to Bridge", "system": "nocopo"},
-    {"id": "receive", "label": "Receiving Output (COPO)", "system": "copo"},
-    {"id": "save", "label": "Saving Results Locally", "system": "copo"},
-    {"id": "done", "label": "Complete", "system": "both"},
+    {"id": "scan", "label": "Scanning Local Changes", "system": "copo", "output": ""},
+    {"id": "push", "label": "Pushing Code to GitHub", "system": "copo", "output": ""},
+    {"id": "detect", "label": "Detecting Changes (NOCOPO)", "system": "nocopo", "output": ""},
+    {"id": "pull", "label": "Pulling / Cloning Repo", "system": "nocopo", "output": ""},
+    {"id": "install", "label": "Installing Dependencies", "system": "nocopo", "output": ""},
+    {"id": "run", "label": "Running Code", "system": "nocopo", "output": ""},
+    {"id": "capture", "label": "Capturing Output", "system": "nocopo", "output": ""},
+    {"id": "push_output", "label": "Pushing Output to Bridge", "system": "nocopo", "output": ""},
+    {"id": "receive", "label": "Receiving Output (COPO)", "system": "copo", "output": ""},
+    {"id": "save", "label": "Saving Results Locally", "system": "copo", "output": ""},
+    {"id": "done", "label": "Complete", "system": "both", "output": ""},
 ]
 
 
-def set_step(step_id, status="running", message=""):
+def set_step(step_id, status="running", message="", output=""):
     """Update a pipeline step status. status: pending|running|done|error|waiting"""
     for s in pipeline_state["steps"]:
         if s["id"] == step_id:
             s["status"] = status
             s["message"] = message
+            if output:
+                if s.get("output"):
+                    s["output"] += "\n" + output
+                else:
+                    s["output"] = output
             s["updated_at"] = datetime.now().isoformat()
             if status == "running":
                 pipeline_state["current_step"] = step_id
@@ -80,7 +85,7 @@ def set_step(step_id, status="running", message=""):
 def reset_steps():
     """Reset all steps to pending."""
     pipeline_state["steps"] = [
-        {**s, "status": "pending", "message": "", "updated_at": None}
+        {**s, "status": "pending", "message": "", "output": "", "updated_at": None}
         for s in PIPELINE_STEPS
     ]
     pipeline_state["current_step"] = None
@@ -362,27 +367,33 @@ def git_add_commit_push(cwd, commit_message, branch="main"):
         except OSError:
             pass
 
-    # Ensure node_modules is in .gitignore
+    # Ensure node_modules and database files are in .gitignore
     gitignore_path = os.path.join(cwd, ".gitignore")
-    ignore_entries = ["node_modules/", "node_modules"]
-    needs_update = True
+    ignore_entries = ["node_modules/", "node_modules", "*.db", "*.mv.db", "*.lock", ".h2.db"]
+    needs_update = False
     if os.path.exists(gitignore_path):
         with open(gitignore_path, "r", encoding="utf-8", errors="ignore") as f:
             content = f.read()
-        if any(entry in content for entry in ignore_entries):
-            needs_update = False
+        needs_update = not any(entry in content for entry in ignore_entries)
     else:
         content = ""
+        needs_update = True
+
     if needs_update:
+        new_entries = "\n" + "\n".join(ignore_entries) + "\n"
         with open(gitignore_path, "a", encoding="utf-8") as f:
-            f.write("\nnode_modules/\n")
-        print(f"[COPO] Added node_modules/ to .gitignore in {cwd}")
-        # Remove node_modules from git tracking if already tracked
-        git_run(["rm", "-r", "--cached", "node_modules"], cwd, timeout=120)
+            f.write(new_entries)
+        print(f"[COPO] Updated .gitignore in {cwd} to exclude db files")
+        # Remove tracked db files from git
+        for pattern in ["*.db", "*.mv.db", ".h2.db"]:
+            git_run(["rm", "-r", "--cached", "--force", pattern], cwd, timeout=60)
 
     # Stage all changes (large repos need more time)
     ok, _, err = git_run(["add", "-A"], cwd, timeout=600)
     if not ok:
+        # Check if it's a permission/lock error
+        if "Permission denied" in err or "permission" in err.lower():
+            return False, [], f"git add failed: {err}\n\n💡 Hint: A file is locked by another process (likely a database or running server). Please:\n1. Stop any running services (Maven, npm, database processes)\n2. Close database files that might be locked\n3. Try again"
         return False, [], f"git add failed: {err}"
 
     # Check if there's anything to commit
@@ -721,23 +732,30 @@ def run_pipeline():
             branch = config["branch"]
             repo_dir = os.path.join(tempfile.gettempdir(), f"nocopo_{target_repo}")
             repo_url = f"https://{token}@github.com/{user}/{target_repo}.git"
+            pull_output = []
 
             if os.path.exists(os.path.join(repo_dir, ".git")):
                 result = subprocess.run(
                     ["git", "pull", "origin", branch],
                     capture_output=True, text=True, cwd=repo_dir, timeout=60
                 )
+                if result.stdout: pull_output.append(result.stdout)
+                if result.stderr: pull_output.append(f"[STDERR] {result.stderr}")
+
                 if result.returncode != 0:
+                    pull_output.append("\n[Fallback: Attempting clone...]")
                     shutil.rmtree(repo_dir, ignore_errors=True)
                     time.sleep(1)
                     result = subprocess.run(
                         ["git", "clone", "--branch", branch, repo_url, repo_dir],
                         capture_output=True, text=True, timeout=60
                     )
+                    if result.stdout: pull_output.append(result.stdout)
+                    if result.stderr: pull_output.append(f"[STDERR] {result.stderr}")
                     if result.returncode != 0:
-                        set_step("pull", "error", f"Clone failed: {result.stderr[:200]}")
+                        set_step("pull", "error", f"Clone failed: {result.stderr[:200]}", "\n".join(pull_output))
                         return {"success": False, "error": "Clone failed"}
-                set_step("pull", "done", "Pulled latest changes")
+                set_step("pull", "done", "Pulled latest changes", "\n".join(pull_output))
             else:
                 if os.path.exists(repo_dir):
                     shutil.rmtree(repo_dir, ignore_errors=True)
@@ -745,10 +763,13 @@ def run_pipeline():
                     ["git", "clone", "--branch", branch, repo_url, repo_dir],
                     capture_output=True, text=True, timeout=60
                 )
+                clone_output = []
+                if result.stdout: clone_output.append(result.stdout)
+                if result.stderr: clone_output.append(f"[STDERR] {result.stderr}")
                 if result.returncode != 0:
-                    set_step("pull", "error", f"Clone failed: {result.stderr[:200]}")
+                    set_step("pull", "error", f"Clone failed: {result.stderr[:200]}", "\n".join(clone_output))
                     return {"success": False, "error": "Clone failed"}
-                set_step("pull", "done", "Cloned fresh repo")
+                set_step("pull", "done", "Cloned fresh repo", "\n".join(clone_output))
 
             # === STEP 5: INSTALL dependencies ===
             if is_step_skipped(skip_steps, "install"):
@@ -757,19 +778,24 @@ def run_pipeline():
                 set_step("install", "running", "Checking for dependencies...")
                 req_file = os.path.join(repo_dir, "requirements.txt")
                 pkg_json = os.path.join(repo_dir, "package.json")
+                install_output = []
 
                 if os.path.exists(req_file):
                     result = subprocess.run(
                         [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
                         capture_output=True, text=True, timeout=120, cwd=repo_dir
                     )
-                    set_step("install", "done", "Python requirements installed")
+                    if result.stdout: install_output.append(result.stdout)
+                    if result.stderr: install_output.append(f"[STDERR] {result.stderr}")
+                    set_step("install", "done", "Python requirements installed", "\n".join(install_output))
                 elif os.path.exists(pkg_json):
                     result = subprocess.run(
                         ["npm", "install"],
                         capture_output=True, text=True, timeout=120, cwd=repo_dir, shell=True
                     )
-                    set_step("install", "done", "npm packages installed")
+                    if result.stdout: install_output.append(result.stdout)
+                    if result.stderr: install_output.append(f"[STDERR] {result.stderr}")
+                    set_step("install", "done", "npm packages installed", "\n".join(install_output))
                 else:
                     set_step("install", "done", "No dependencies file found (skipped)")
 
@@ -780,10 +806,19 @@ def run_pipeline():
             timeout_sec = config["timeout"]
 
             if run_cmd:
-                if sys.platform == "win32":
-                    cmd_parts = ["powershell", "-NoProfile", "-NonInteractive",
-                                 "-ExecutionPolicy", "Bypass", "-Command", run_cmd]
+                # Check if run_cmd contains multiple lines (commands to chain)
+                if "\n" in run_cmd or "&&" in run_cmd:
+                    # Multiple commands: chain them with && for sequential execution
+                    chained_cmd = " && ".join(line.strip() for line in run_cmd.strip().split("\n") if line.strip())
+                    if sys.platform == "win32":
+                        # Use PowerShell for Windows
+                        cmd_parts = ["powershell", "-NoProfile", "-NonInteractive",
+                                   "-ExecutionPolicy", "Bypass", "-Command", chained_cmd]
+                    else:
+                        # Use shell for Linux/Mac
+                        cmd_parts = ["bash", "-c", chained_cmd]
                 else:
+                    # Single command
                     cmd_parts = run_cmd.split()
             elif entry:
                 entry_path = os.path.join(repo_dir, entry)
@@ -821,7 +856,17 @@ def run_pipeline():
                 else:
                     cmd_parts = [entry_path]
 
-            set_step("run", "running", f"Running: {' '.join(os.path.basename(c) for c in cmd_parts)}")
+            # Create readable display for command
+            if isinstance(cmd_parts, list) and len(cmd_parts) > 0:
+                if cmd_parts[0] == "powershell" and len(cmd_parts) > 4:
+                    # Show the actual command for PowerShell chained commands
+                    cmd_display = cmd_parts[4][:80]
+                else:
+                    cmd_display = ' '.join(os.path.basename(c) for c in cmd_parts)
+            else:
+                cmd_display = str(run_cmd)[:80] if run_cmd else "(auto-detect)"
+
+            set_step("run", "running", f"Running: {cmd_display}")
 
             try:
                 proc_result = subprocess.run(
@@ -844,21 +889,26 @@ def run_pipeline():
                 run_status = "ERROR"
 
             set_step("run", "done" if exit_code == 0 else "error",
-                    f"Exit code: {exit_code} ({run_status})")
+                    f"Exit code: {exit_code} ({run_status})", stdout + ("\n[STDERR] " + stderr if stderr else ""))
 
             # === STEP 7: CAPTURE output ===
             if is_step_skipped(skip_steps, "capture"):
-                set_step("capture", "done", "Skipped by config")
                 full_output = stdout if stdout else ""
                 if stderr:
                     full_output += ("\n" if full_output else "") + f"[STDERR] {stderr}"
                 if not full_output.strip():
                     full_output = f"Capture skipped. Exit code: {exit_code} ({run_status})"
+                set_step("capture", "done", "Skipped by config", full_output)
             else:
                 set_step("capture", "running", "Formatting output...")
                 output_parts = []
                 output_parts.append(f"=== Target: {target_repo} ===")
-                output_parts.append(f"=== Command: {' '.join(cmd_parts)} ===")
+                # Display command properly for both chained and single commands
+                if isinstance(cmd_parts, list) and len(cmd_parts) > 0 and cmd_parts[0] == "powershell" and len(cmd_parts) > 4:
+                    cmd_display = cmd_parts[4]
+                else:
+                    cmd_display = ' '.join(cmd_parts)
+                output_parts.append(f"=== Command: {cmd_display} ===")
                 output_parts.append(f"=== Timestamp: {datetime.now().isoformat()} ===")
                 if stdout:
                     output_parts.append("\n=== STDOUT ===")
@@ -870,7 +920,7 @@ def run_pipeline():
                 output_parts.append(f"=== STATUS: {run_status} ===")
 
                 full_output = "\n".join(output_parts)
-                set_step("capture", "done", f"Output captured ({len(full_output)} bytes)")
+                set_step("capture", "done", f"Output captured ({len(full_output)} bytes)", full_output)
 
             # === STEP 8: PUSH output to bridge ===
             set_step("push_output", "running", "Pushing output to copilot-bridge...")

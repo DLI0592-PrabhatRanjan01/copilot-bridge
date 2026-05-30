@@ -623,10 +623,21 @@ function showStepOutput(index) {
     if (step.message) output += `Message: ${step.message}\n`;
     output += `─────────────────────────────\n`;
 
-    if (step.status === 'pending') output += `\n(Step has not started yet)`;
-    else if (step.status === 'running') output += `\n(Step is currently running...)`;
-    else if (step.status === 'done') output += `\n(Step completed successfully)`;
-    else if (step.status === 'error') output += `\n(Step failed - ${step.message || 'no details'})`;
+    if (step.output) {
+        output += `\n${step.output}`;
+    } else if (step.error) {
+        output += `\nError: ${step.error}`;
+    } else if (step.details) {
+        output += `\n${step.details}`;
+    } else if (step.status === 'pending') {
+        output += `\n(Step has not started yet)`;
+    } else if (step.status === 'running') {
+        output += `\n(Step is currently running...)`;
+    } else if (step.status === 'done') {
+        output += `\n(Step completed successfully)`;
+    } else if (step.status === 'error') {
+        output += `\n(Step failed - ${step.message || 'no details'})`;
+    }
 
     document.getElementById('outputArea').textContent = output;
 }

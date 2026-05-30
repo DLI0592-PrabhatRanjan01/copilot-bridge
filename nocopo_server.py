@@ -62,22 +62,27 @@ nocopo_state = {
 }
 
 NOCOPO_STEPS = [
-    {"id": "poll", "label": "Polling for Changes"},
-    {"id": "detect", "label": "Change Detected"},
-    {"id": "pull", "label": "Pulling / Cloning Repo"},
-    {"id": "install", "label": "Installing Dependencies"},
-    {"id": "run", "label": "Running Code"},
-    {"id": "capture", "label": "Capturing Output"},
-    {"id": "push_output", "label": "Pushing Output to Bridge"},
-    {"id": "done", "label": "Complete"},
+    {"id": "poll", "label": "Polling for Changes", "output": ""},
+    {"id": "detect", "label": "Change Detected", "output": ""},
+    {"id": "pull", "label": "Pulling / Cloning Repo", "output": ""},
+    {"id": "install", "label": "Installing Dependencies", "output": ""},
+    {"id": "run", "label": "Running Code", "output": ""},
+    {"id": "capture", "label": "Capturing Output", "output": ""},
+    {"id": "push_output", "label": "Pushing Output to Bridge", "output": ""},
+    {"id": "done", "label": "Complete", "output": ""},
 ]
 
 
-def set_step(step_id, status="running", message=""):
+def set_step(step_id, status="running", message="", output=""):
     for s in nocopo_state["steps"]:
         if s["id"] == step_id:
             s["status"] = status
             s["message"] = message
+            if output:
+                if s.get("output"):
+                    s["output"] += "\n" + output
+                else:
+                    s["output"] = output
             s["updated_at"] = datetime.now().isoformat()
             if status == "running":
                 nocopo_state["current_step"] = step_id
@@ -86,7 +91,7 @@ def set_step(step_id, status="running", message=""):
 
 def reset_steps():
     nocopo_state["steps"] = [
-        {**s, "status": "pending", "message": "", "updated_at": None}
+        {**s, "status": "pending", "message": "", "output": "", "updated_at": None}
         for s in NOCOPO_STEPS
     ]
     nocopo_state["current_step"] = None
@@ -883,14 +888,18 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                         install_output.append(f"[STDERR] {proc.stderr}")
                     install_output.append(f"Exit: {proc.returncode}")
                     if proc.returncode != 0:
-                        set_step("install", "error", f"Install failed (exit {proc.returncode})")
+                        full_out = "\n".join(install_output)
+                        set_step("install", "error", f"Install failed (exit {proc.returncode})", full_out)
                         return {"success": False, "error": f"Install failed: {proc.stderr[:300]}"}
-                    set_step("install", "done", f"Modules installed via: {cmd_str}")
+                    full_out = "\n".join(install_output)
+                    set_step("install", "done", f"Modules installed via: {cmd_str}", full_out)
                 except subprocess.TimeoutExpired:
-                    set_step("install", "error", "Install timed out (600s)")
+                    full_out = "\n".join(install_output) + "\n[TIMEOUT] Install timed out (600s)"
+                    set_step("install", "error", "Install timed out (600s)", full_out)
                     return {"success": False, "error": "Install timeout"}
                 except Exception as e:
-                    set_step("install", "error", str(e))
+                    full_out = "\n".join(install_output) + f"\n[ERROR] {str(e)}"
+                    set_step("install", "error", str(e), full_out)
                     return {"success": False, "error": str(e)}
 
             # PUSH modules back to target repo
@@ -1073,52 +1082,64 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
 
         if run_mode == "manual" and run_cmd:
             # Manual mode: run command(s) specified by user
-            # Support multiple commands separated by && or newlines
-            commands = []
-            for line in run_cmd.replace("&&", "\n").split("\n"):
-                line = line.strip()
-                if line:
-                    commands.append(line)
-
+            # Chain multiple commands with && for sequential execution (preserves directory changes)
             all_outputs.append(f"=== Working Dir: {repo_dir} ===")
-            all_outputs.append(f"=== Total Commands: {len(commands)} ===\n")
+            all_outputs.append(f"=== Commands ===")
+            for line in run_cmd.strip().split("\n"):
+                if line.strip():
+                    all_outputs.append(f"  {line.strip()}")
+            all_outputs.append("")
 
-            for i, cmd_str in enumerate(commands):
-                cmd_label = cmd_str[:60] + "..." if len(cmd_str) > 60 else cmd_str
-                set_step("run", "running", f"[{i+1}/{len(commands)}] {cmd_label}")
-                update_bridge_progress("run", f"Running command {i+1}/{len(commands)}: {cmd_label}")
+            # Join commands with && to run sequentially in one shell session
+            # This preserves directory changes across commands
+            chained_cmd = " && ".join(line.strip() for line in run_cmd.strip().split("\n") if line.strip())
 
+            set_step("run", "running", f"Running {len([l for l in run_cmd.strip().split(chr(10)) if l.strip()])} commands sequentially...")
+            update_bridge_progress("run", "Running chained commands...")
+
+            try:
                 if sys.platform == "win32":
-                    ps_cmd = ["powershell", "-NoProfile", "-NonInteractive",
-                              "-ExecutionPolicy", "Bypass", "-Command", cmd_str]
-                    run_args = {"args": ps_cmd, "shell": False}
-                else:
-                    run_args = {"args": cmd_str, "shell": True}
-                try:
+                    # Use PowerShell for Windows to handle && properly
+                    cmd_args = ["powershell", "-NoProfile", "-NonInteractive",
+                               "-ExecutionPolicy", "Bypass", "-Command", chained_cmd]
                     proc = subprocess.run(
-                        **run_args, capture_output=True, text=True,
-                        timeout=timeout_sec, cwd=repo_dir
+                        cmd_args, capture_output=True, text=True,
+                        timeout=timeout_sec, cwd=repo_dir, shell=False
                     )
-                    all_outputs.append(f"--- Command [{i+1}]: {cmd_str} ---")
-                    all_outputs.append(f"--- Full CWD: {repo_dir} ---")
-                    if proc.stdout:
-                        all_outputs.append(proc.stdout)
-                    if proc.stderr:
-                        all_outputs.append(f"[STDERR] {proc.stderr}")
-                    all_outputs.append(f"--- Exit: {proc.returncode} ---\n")
-                    if proc.returncode != 0:
-                        exit_code = proc.returncode
-                        run_status = "FAILED"
-                except subprocess.TimeoutExpired:
-                    all_outputs.append(f"--- Command: {cmd_str} ---\n[TIMEOUT after {timeout_sec}s]\n")
-                    exit_code = -1
-                    run_status = "TIMEOUT"
-                    break
-                except Exception as e:
-                    all_outputs.append(f"--- Command: {cmd_str} ---\n[ERROR] {str(e)}\n")
-                    exit_code = -1
-                    run_status = "ERROR"
-                    break
+                else:
+                    # Use shell for Linux/Mac
+                    proc = subprocess.run(
+                        chained_cmd, capture_output=True, text=True,
+                        timeout=timeout_sec, cwd=repo_dir, shell=True
+                    )
+
+                exit_code = proc.returncode
+                if proc.stdout:
+                    all_outputs.append(proc.stdout)
+                if proc.stderr:
+                    all_outputs.append(f"[STDERR] {proc.stderr}")
+                all_outputs.append(f"--- Exit Code: {exit_code} ---")
+
+                if exit_code != 0:
+                    run_status = "FAILED"
+                else:
+                    run_status = "SUCCESS"
+            except subprocess.TimeoutExpired:
+                all_outputs.append(f"[TIMEOUT] Commands timed out after {timeout_sec}s")
+                exit_code = -1
+                run_status = "TIMEOUT"
+            except Exception as e:
+                all_outputs.append(f"[ERROR] {str(e)}")
+                exit_code = -1
+                run_status = "ERROR"
+
+            full_cmd_output = "\n".join(all_outputs)
+            if run_status == "FAILED":
+                set_step("run", "error", f"Exit code: {exit_code} (FAILED)", full_cmd_output)
+            elif run_status == "TIMEOUT":
+                set_step("run", "error", "Commands timed out", full_cmd_output)
+            else:
+                set_step("run", "done" if exit_code == 0 else "error", f"Exit code: {exit_code}", full_cmd_output)
 
         elif run_mode == "manual" and entry:
             # Manual mode with entry point only
@@ -1231,16 +1252,16 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         stderr = ""  # Already merged into stdout above
 
         set_step("run", "done" if exit_code == 0 else "error",
-                f"Exit code: {exit_code} ({run_status})")
+                f"Exit code: {exit_code} ({run_status})", stdout)
 
         # CAPTURE
         if is_step_skipped(skip_steps, "capture"):
-            set_step("capture", "done", "Skipped by config")
             full_output = stdout if stdout else ""
             if stderr:
                 full_output += ("\n" if full_output else "") + f"[STDERR] {stderr}"
             if not full_output.strip():
                 full_output = f"Capture skipped. Exit code: {exit_code} ({run_status})"
+            set_step("capture", "done", "Skipped by config", full_output)
         else:
             set_step("capture", "running", "Formatting output...")
             update_bridge_progress("capture", "Capturing output...")
