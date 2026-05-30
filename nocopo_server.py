@@ -687,6 +687,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         repo_dir = os.path.join(tempfile.gettempdir(), f"nocopo_{target_repo}")
         repo_url = f"https://{token}@github.com/{user}/{target_repo}.git"
         used_existing_repo = os.path.exists(os.path.join(repo_dir, ".git"))
+        pull_method = "pull" if used_existing_repo else None
         target_head_before = get_latest_commit(target_repo)
         bridge_head_before = get_latest_commit(config["bridge_repo"])
         nocopo_state["transfer_info"].update({
@@ -711,25 +712,41 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 if result.returncode != 0:
                     set_step("pull", "error", f"Clone failed: {result.stderr[:200]}")
                     return {"success": False, "error": "Clone failed"}
+                pull_method = "clone"
             set_step("pull", "done", f"Pulled latest → {repo_dir}")
         else:
-            if os.path.exists(repo_dir):
-                shutil.rmtree(repo_dir, ignore_errors=True)
-            set_step("pull", "running", f"Cloning into: {repo_dir}")
-            result = subprocess.run(
-                ["git", "clone", "--branch", branch, repo_url, repo_dir],
-                capture_output=True, text=True, timeout=60
-            )
-            if result.returncode != 0:
-                set_step("pull", "error", f"Clone failed: {result.stderr[:200]}")
-                return {"success": False, "error": "Clone failed"}
-            set_step("pull", "done", f"Cloned fresh → {repo_dir}")
+            if os.path.isdir(repo_dir) and os.listdir(repo_dir):
+                pull_method = "existing-dir"
+                set_step("pull", "done", f"Using existing directory → {repo_dir}")
+            else:
+                if os.path.exists(repo_dir):
+                    shutil.rmtree(repo_dir, ignore_errors=True)
+                set_step("pull", "running", f"Cloning into: {repo_dir}")
+                result = subprocess.run(
+                    ["git", "clone", "--branch", branch, repo_url, repo_dir],
+                    capture_output=True, text=True, timeout=60
+                )
+                if result.returncode != 0:
+                    clone_error = (result.stderr or result.stdout or "")[:200]
+                    if (
+                        os.path.isdir(repo_dir)
+                        and os.listdir(repo_dir)
+                        and "already exists and is not an empty directory" in (result.stderr or "")
+                    ):
+                        pull_method = "existing-dir"
+                        set_step("pull", "done", f"Clone skipped, using existing directory → {repo_dir}")
+                    else:
+                        set_step("pull", "error", f"Clone failed: {clone_error}")
+                        return {"success": False, "error": "Clone failed"}
+                else:
+                    pull_method = "clone"
+                    set_step("pull", "done", f"Cloned fresh → {repo_dir}")
 
         nocopo_state["transfer_info"]["pulled"] = {
             "repo": target_repo,
             "local_path": repo_dir,
             "branch": branch,
-            "method": "pull" if used_existing_repo else "clone",
+            "method": pull_method or ("pull" if used_existing_repo else "clone"),
             "commit": get_repo_snapshot(target_repo, get_latest_commit(target_repo)),
             "updated_at": datetime.now().isoformat(),
         }

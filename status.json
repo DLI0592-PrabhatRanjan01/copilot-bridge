@@ -3,15 +3,12 @@
   "pushed_by": "copo",
   "target_repo": "naukri-automation",
   "iteration": 1,
-  "timestamp": "2026-05-30T17:43:26.282120",
+  "timestamp": "2026-05-30T17:53:34.267560",
   "files_pushed": 0,
   "entry_point": "",
   "run_command": "cd c:\\Users\\prabh\\naukri-automation\\backend\nmvn spring-boot:run\ncd c:\\Users\\prabh\\naukri-automation\\frontend\\src\nnpm start",
   "run_mode": "auto",
   "request_type": "output",
   "modules_command": "",
-  "message": "Code pushed from naukri-automation",
-  "nocopo_step": "pull",
-  "nocopo_message": "Pulling naukri-automation...",
-  "nocopo_updated_at": "2026-05-30T17:45:21.838093"
+  "message": "Code pushed from naukri-automation"
 }
