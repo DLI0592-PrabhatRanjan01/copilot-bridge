@@ -6,5 +6,8 @@
   "exit_code": 1,
   "skip_steps": [],
   "timestamp": "2026-05-30T20:27:48.037875",
-  "message": "Output ready (FAILED)"
+  "message": "Output ready (FAILED)",
+  "nocopo_step": "detect",
+  "nocopo_message": "Manual trigger from NOCOPO dashboard",
+  "nocopo_updated_at": "2026-05-30T20:30:23.579784"
 }
