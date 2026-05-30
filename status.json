@@ -2,12 +2,9 @@
   "state": "output_ready",
   "pushed_by": "nocopo",
   "target_repo": "naukri-automation",
-  "iteration": 1,
+  "iteration": 2,
   "exit_code": -1,
   "skip_steps": [],
-  "timestamp": "2026-05-30T19:18:25.064025",
-  "message": "Output ready (ERROR)",
-  "nocopo_step": "push_output",
-  "nocopo_message": "Pushing output to bridge...",
-  "nocopo_updated_at": "2026-05-30T19:21:02.866694"
+  "timestamp": "2026-05-30T19:21:03.987609",
+  "message": "Output ready (ERROR)"
 }

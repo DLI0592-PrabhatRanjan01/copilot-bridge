@@ -1,10 +1,16 @@
-=== Target: web-scraper ===
-=== Command: python main.py --arg ===
-=== Timestamp: 2026-05-27T09:34:14.779971 ===
+=== Target: naukri-automation ===
+=== Run Mode: manual ===
+=== Repo Cloned At: C:\Users\prabh\AppData\Local\Temp\nocopo_repos\naukri-automation ===
+=== Python Interpreter: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe ===
+=== Timestamp: 2026-05-30T19:21:02.559844 ===
 
-=== STDERR ===
-python: can't open file 'C:\\Users\\prabh\\AppData\\Local\\Temp\\nocopo_web-scraper\\main.py': [Errno 2] No such file or directory
+=== OUTPUT ===
+=== Working Dir: C:\Users\prabh\AppData\Local\Temp\nocopo_repos\naukri-automation ===
+=== Total Commands: 5 ===
+
+--- Command: cd c:\Users\prabh\naukri-automation\backend ---
+[ERROR] [WinError 2] The system cannot find the file specified
 
 
-=== EXIT CODE: 2 ===
-=== STATUS: FAILED ===
+=== EXIT CODE: -1 ===
+=== STATUS: ERROR ===
