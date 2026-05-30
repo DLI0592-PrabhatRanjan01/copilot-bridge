@@ -8,6 +8,6 @@
   "timestamp": "2026-05-30T23:49:19.643848",
   "message": "Output ready (ERROR)",
   "nocopo_step": "run",
-  "nocopo_message": "Running code...",
-  "nocopo_updated_at": "2026-05-30T23:51:29.281465"
+  "nocopo_message": "Running chained commands...",
+  "nocopo_updated_at": "2026-05-30T23:51:31.128531"
 }
