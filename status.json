@@ -11,7 +11,7 @@
   "request_type": "output",
   "modules_command": "",
   "message": "Code pushed from naukri-automation",
-  "nocopo_step": "detect",
-  "nocopo_message": "Manual trigger from NOCOPO dashboard",
-  "nocopo_updated_at": "2026-05-30T18:09:08.307018"
+  "nocopo_step": "pull",
+  "nocopo_message": "Pulling naukri-automation...",
+  "nocopo_updated_at": "2026-05-30T18:09:09.928455"
 }
