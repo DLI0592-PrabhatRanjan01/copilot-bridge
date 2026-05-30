@@ -2,7 +2,7 @@
 === Run Mode: manual ===
 === Repo Cloned At: c:\Users\prabh\naukri-automation ===
 === Python Interpreter: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe ===
-=== Timestamp: 2026-05-31T00:53:30.523943 ===
+=== Timestamp: 2026-05-31T01:52:29.818871 ===
 
 === OUTPUT ===
 === Working Dir: c:\Users\prabh\naukri-automation ===
@@ -27,7 +27,7 @@
 [INFO] 
 [INFO] --- compiler:3.11.0:compile (default-compile) @ naukri-automation ---
 [INFO] Changes detected - recompiling the module! :input tree
-[INFO] Compiling 35 source files with javac [debug release 17] to target\classes
+[INFO] Compiling 42 source files with javac [debug release 17] to target\classes
 [INFO] Annotation processing is enabled because one or more processors were found
   on the class path. A future release of javac may disable annotation processing
   unless at least one processor is specified by name (-processor), or a search
@@ -54,268 +54,34 @@
   '  |____| .__|_| |_|_| |_\__, | / / / /
  =========|_|==============|___/=/_/_/_/
  :: Spring Boot ::                (v3.2.5)
-2026-05-31T00:53:19.632+05:30  INFO 37904 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : Starting NaukriAutomationApplication using Java 22.0.2 with PID 37904 (C:\Users\prabh\naukri-automation\backend\target\classes started by prabh in c:\Users\prabh\naukri-automation\backend)
-2026-05-31T00:53:19.634+05:30  INFO 37904 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : No active profile set, falling back to 1 default profile: "default"
-2026-05-31T00:53:20.500+05:30  INFO 37904 --- [naukri-automation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-05-31T00:53:20.583+05:30  INFO 37904 --- [naukri-automation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 72 ms. Found 5 JPA repository interfaces.
-2026-05-31T00:53:21.315+05:30  INFO 37904 --- [naukri-automation] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 4000 (http)
-2026-05-31T00:53:21.339+05:30  INFO 37904 --- [naukri-automation] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-05-31T00:53:21.339+05:30  INFO 37904 --- [naukri-automation] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.20]
-2026-05-31T00:53:21.467+05:30  INFO 37904 --- [naukri-automation] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
-2026-05-31T00:53:21.468+05:30  INFO 37904 --- [naukri-automation] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1777 ms
-2026-05-31T00:53:21.498+05:30  INFO 37904 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-05-31T00:53:22.726+05:30 ERROR 37904 --- [naukri-automation] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Exception during pool initialization.
-org.h2.jdbc.JdbcSQLNonTransientConnectionException: Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]
-	at org.h2.message.DbException.getJdbcSQLException(DbException.java:690) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.message.DbException.get(DbException.java:212) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.db.Store.convertMVStoreException(Store.java:165) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.db.Store.<init>(Store.java:142) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Database.<init>(Database.java:326) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Engine.openSession(Engine.java:92) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Engine.openSession(Engine.java:222) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Engine.createSession(Engine.java:201) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.SessionRemote.connectEmbeddedOrServer(SessionRemote.java:343) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:125) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.Driver.connect(Driver.java:59) ~[h2-2.2.224.jar:2.2.224]
-	at com.zaxxer.hikari.util.DriverDataSource.getConnection(DriverDataSource.java:138) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.PoolBase.newConnection(PoolBase.java:359) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.PoolBase.newPoolEntry(PoolBase.java:201) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.HikariPool.createPoolEntry(HikariPool.java:470) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.HikariPool.checkFailFast(HikariPool.java:561) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.HikariPool.<init>(HikariPool.java:100) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:112) ~[HikariCP-5.0.1.jar:na]
-	at org.springframework.boot.autoconfigure.h2.H2ConsoleAutoConfiguration.getConnectionUrl(H2ConsoleAutoConfiguration.java:94) ~[spring-boot-autoconfigure-3.2.5.jar:3.2.5]
-	at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:212) ~[na:na]
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597) ~[na:na]
-	at java.base/java.util.stream.SortedOps$RefSortingSink.end(SortedOps.java:395) ~[na:na]
-	at java.base/java.util.stream.Sink$ChainedReference.end(Sink.java:261) ~[na:na]
-	at java.base/java.util.stream.Sink$ChainedReference.end(Sink.java:261) ~[na:na]
-	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:557) ~[na:na]
-	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:546) ~[na:na]
-	at java.base/java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:622) ~[na:na]
-	at java.base/java.util.stream.AbstractPipeline.evaluateToArrayNode(AbstractPipeline.java:291) ~[na:na]
-	at java.base/java.util.stream.ReferencePipeline.toArray(ReferencePipeline.java:631) ~[na:na]
-	at java.base/java.util.stream.ReferencePipeline.toArray(ReferencePipeline.java:637) ~[na:na]
-	at java.base/java.util.stream.ReferencePipeline.toList(ReferencePipeline.java:642) ~[na:na]
-	at org.springframework.boot.autoconfigure.h2.H2ConsoleAutoConfiguration.logDataSources(H2ConsoleAutoConfiguration.java:86) ~[spring-boot-autoconfigure-3.2.5.jar:3.2.5]
-	at org.springframework.boot.autoconfigure.h2.H2ConsoleAutoConfiguration.lambda$h2Console$0(H2ConsoleAutoConfiguration.java:69) ~[spring-boot-autoconfigure-3.2.5.jar:3.2.5]
-	at org.springframework.boot.autoconfigure.h2.H2ConsoleAutoConfiguration.withThreadContextClassLoader(H2ConsoleAutoConfiguration.java:78) ~[spring-boot-autoconfigure-3.2.5.jar:3.2.5]
-	at org.springframework.boot.autoconfigure.h2.H2ConsoleAutoConfiguration.h2Console(H2ConsoleAutoConfiguration.java:69) ~[spring-boot-autoconfigure-3.2.5.jar:3.2.5]
-	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
-	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiate(SimpleInstantiationStrategy.java:140) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:644) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:636) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1335) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1165) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:562) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:522) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:205) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.getOrderedBeansOfType(ServletContextInitializerBeans.java:210) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.getOrderedBeansOfType(ServletContextInitializerBeans.java:201) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.addServletContextInitializerBeans(ServletContextInitializerBeans.java:96) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.<init>(ServletContextInitializerBeans.java:85) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.getServletContextInitializerBeans(ServletWebServerApplicationContext.java:266) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.selfInitialize(ServletWebServerApplicationContext.java:240) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.web.embedded.tomcat.TomcatStarter.onStartup(TomcatStarter.java:52) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.apache.catalina.core.StandardContext.startInternal(StandardContext.java:4880) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:171) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1332) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1322) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317) ~[na:na]
-	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:75) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145) ~[na:na]
-	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:866) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.core.StandardHost.startInternal(StandardHost.java:845) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:171) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1332) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1322) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317) ~[na:na]
-	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:75) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145) ~[na:na]
-	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:866) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.core.StandardEngine.startInternal(StandardEngine.java:240) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:171) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.core.StandardService.startInternal(StandardService.java:433) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:171) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.core.StandardServer.startInternal(StandardServer.java:921) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:171) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.apache.catalina.startup.Tomcat.start(Tomcat.java:437) ~[tomcat-embed-core-10.1.20.jar:10.1.20]
-	at org.springframework.boot.web.embedded.tomcat.TomcatWebServer.initialize(TomcatWebServer.java:126) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.web.embedded.tomcat.TomcatWebServer.<init>(TomcatWebServer.java:105) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory.getTomcatWebServer(TomcatServletWebServerFactory.java:499) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory.getWebServer(TomcatServletWebServerFactory.java:218) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.createWebServer(ServletWebServerApplicationContext.java:188) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.onRefresh(ServletWebServerApplicationContext.java:162) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:618) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:754) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:456) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:334) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1343) ~[spring-boot-3.2.5.jar:3.2.5]
-	at com.naukri.automation.NaukriAutomationApplication.main(NaukriAutomationApplication.java:11) ~[classes/:na]
-Caused by: org.h2.mvstore.MVStoreException: The file is locked: C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db [2.2.224/7]
-	at org.h2.mvstore.DataUtils.newMVStoreException(DataUtils.java:996) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.SingleFileStore.lockFileChannel(SingleFileStore.java:143) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:117) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:81) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.MVStore.<init>(MVStore.java:286) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.MVStore$Builder.open(MVStore.java:2035) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.db.Store.<init>(Store.java:133) ~[h2-2.2.224.jar:2.2.224]
-	... 88 common frames omitted
-2026-05-31T00:53:23.021+05:30  INFO 37904 --- [naukri-automation] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
-2026-05-31T00:53:23.189+05:30  INFO 37904 --- [naukri-automation] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
-2026-05-31T00:53:23.278+05:30  INFO 37904 --- [naukri-automation] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
-2026-05-31T00:53:24.030+05:30  INFO 37904 --- [naukri-automation] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-05-31T00:53:24.086+05:30  INFO 37904 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-05-31T00:53:25.126+05:30 ERROR 37904 --- [naukri-automation] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Exception during pool initialization.
-org.h2.jdbc.JdbcSQLNonTransientConnectionException: Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]
-	at org.h2.message.DbException.getJdbcSQLException(DbException.java:690) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.message.DbException.get(DbException.java:212) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.db.Store.convertMVStoreException(Store.java:165) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.db.Store.<init>(Store.java:142) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Database.<init>(Database.java:326) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Engine.openSession(Engine.java:92) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Engine.openSession(Engine.java:222) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Engine.createSession(Engine.java:201) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.SessionRemote.connectEmbeddedOrServer(SessionRemote.java:343) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:125) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.Driver.connect(Driver.java:59) ~[h2-2.2.224.jar:2.2.224]
-	at com.zaxxer.hikari.util.DriverDataSource.getConnection(DriverDataSource.java:138) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.PoolBase.newConnection(PoolBase.java:359) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.PoolBase.newPoolEntry(PoolBase.java:201) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.HikariPool.createPoolEntry(HikariPool.java:470) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.HikariPool.checkFailFast(HikariPool.java:561) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.HikariPool.<init>(HikariPool.java:100) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:112) ~[HikariCP-5.0.1.jar:na]
-	at org.hibernate.engine.jdbc.connections.internal.DatasourceConnectionProviderImpl.getConnection(DatasourceConnectionProviderImpl.java:122) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator$ConnectionProviderJdbcConnectionAccess.obtainConnection(JdbcEnvironmentInitiator.java:428) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.resource.transaction.backend.jdbc.internal.JdbcIsolationDelegate.delegateWork(JdbcIsolationDelegate.java:61) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.getJdbcEnvironmentUsingJdbcMetadata(JdbcEnvironmentInitiator.java:276) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.initiateService(JdbcEnvironmentInitiator.java:107) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.initiateService(JdbcEnvironmentInitiator.java:68) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.boot.registry.internal.StandardServiceRegistryImpl.initiateService(StandardServiceRegistryImpl.java:130) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.service.internal.AbstractServiceRegistryImpl.createService(AbstractServiceRegistryImpl.java:263) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.service.internal.AbstractServiceRegistryImpl.initializeService(AbstractServiceRegistryImpl.java:238) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.service.internal.AbstractServiceRegistryImpl.getService(AbstractServiceRegistryImpl.java:215) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.boot.model.relational.Database.<init>(Database.java:45) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.boot.internal.InFlightMetadataCollectorImpl.getDatabase(InFlightMetadataCollectorImpl.java:223) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.boot.internal.InFlightMetadataCollectorImpl.<init>(InFlightMetadataCollectorImpl.java:191) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.boot.model.process.spi.MetadataBuildingProcess.complete(MetadataBuildingProcess.java:170) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl.metadata(EntityManagerFactoryBuilderImpl.java:1432) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl.build(EntityManagerFactoryBuilderImpl.java:1503) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.springframework.orm.jpa.vendor.SpringHibernateJpaPersistenceProvider.createContainerEntityManagerFactory(SpringHibernateJpaPersistenceProvider.java:75) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.createNativeEntityManagerFactory(LocalContainerEntityManagerFactoryBean.java:390) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.buildNativeEntityManagerFactory(AbstractEntityManagerFactoryBean.java:409) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.afterPropertiesSet(AbstractEntityManagerFactoryBean.java:396) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.afterPropertiesSet(LocalContainerEntityManagerFactoryBean.java:366) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1833) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1782) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:600) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:522) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.AbstractApplicationContext.getBean(AbstractApplicationContext.java:1234) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:952) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:624) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:754) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:456) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:334) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1343) ~[spring-boot-3.2.5.jar:3.2.5]
-	at com.naukri.automation.NaukriAutomationApplication.main(NaukriAutomationApplication.java:11) ~[classes/:na]
-Caused by: org.h2.mvstore.MVStoreException: The file is locked: C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db [2.2.224/7]
-	at org.h2.mvstore.DataUtils.newMVStoreException(DataUtils.java:996) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.SingleFileStore.lockFileChannel(SingleFileStore.java:143) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:117) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:81) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.MVStore.<init>(MVStore.java:286) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.MVStore$Builder.open(MVStore.java:2035) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.db.Store.<init>(Store.java:133) ~[h2-2.2.224.jar:2.2.224]
-	... 53 common frames omitted
-2026-05-31T00:53:25.141+05:30  WARN 37904 --- [naukri-automation] [           main] o.h.e.j.e.i.JdbcEnvironmentInitiator     : HHH000342: Could not obtain connection to query metadata
-java.lang.NullPointerException: Cannot invoke "org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(java.sql.SQLException, String)" because the return value of "org.hibernate.resource.transaction.backend.jdbc.internal.JdbcIsolationDelegate.sqlExceptionHelper()" is null
-	at org.hibernate.resource.transaction.backend.jdbc.internal.JdbcIsolationDelegate.delegateWork(JdbcIsolationDelegate.java:116) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.getJdbcEnvironmentUsingJdbcMetadata(JdbcEnvironmentInitiator.java:276) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.initiateService(JdbcEnvironmentInitiator.java:107) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.initiateService(JdbcEnvironmentInitiator.java:68) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.boot.registry.internal.StandardServiceRegistryImpl.initiateService(StandardServiceRegistryImpl.java:130) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.service.internal.AbstractServiceRegistryImpl.createService(AbstractServiceRegistryImpl.java:263) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.service.internal.AbstractServiceRegistryImpl.initializeService(AbstractServiceRegistryImpl.java:238) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.service.internal.AbstractServiceRegistryImpl.getService(AbstractServiceRegistryImpl.java:215) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.boot.model.relational.Database.<init>(Database.java:45) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.boot.internal.InFlightMetadataCollectorImpl.getDatabase(InFlightMetadataCollectorImpl.java:223) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.boot.internal.InFlightMetadataCollectorImpl.<init>(InFlightMetadataCollectorImpl.java:191) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.boot.model.process.spi.MetadataBuildingProcess.complete(MetadataBuildingProcess.java:170) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl.metadata(EntityManagerFactoryBuilderImpl.java:1432) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl.build(EntityManagerFactoryBuilderImpl.java:1503) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.springframework.orm.jpa.vendor.SpringHibernateJpaPersistenceProvider.createContainerEntityManagerFactory(SpringHibernateJpaPersistenceProvider.java:75) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.createNativeEntityManagerFactory(LocalContainerEntityManagerFactoryBean.java:390) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.buildNativeEntityManagerFactory(AbstractEntityManagerFactoryBean.java:409) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.afterPropertiesSet(AbstractEntityManagerFactoryBean.java:396) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.afterPropertiesSet(LocalContainerEntityManagerFactoryBean.java:366) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1833) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1782) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:600) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:522) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.AbstractApplicationContext.getBean(AbstractApplicationContext.java:1234) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:952) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:624) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:754) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:456) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:334) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1343) ~[spring-boot-3.2.5.jar:3.2.5]
-	at com.naukri.automation.NaukriAutomationApplication.main(NaukriAutomationApplication.java:11) ~[classes/:na]
-2026-05-31T00:53:25.201+05:30  WARN 37904 --- [naukri-automation] [           main] org.hibernate.orm.deprecation            : HHH90000025: H2Dialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
-2026-05-31T00:53:27.686+05:30  INFO 37904 --- [naukri-automation] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-05-31T00:53:27.721+05:30  INFO 37904 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-05-31T00:53:28.756+05:30 ERROR 37904 --- [naukri-automation] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Exception during pool initialization.
-org.h2.jdbc.JdbcSQLNonTransientConnectionException: Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]
-	at org.h2.message.DbException.getJdbcSQLException(DbException.java:690) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.message.DbException.get(DbException.java:212) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.db.Store.convertMVStoreException(Store.java:165) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.db.Store.<init>(Store.java:142) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Database.<init>(Database.java:326) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Engine.openSession(Engine.java:92) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Engine.openSession(Engine.java:222) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Engine.createSession(Engine.java:201) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.SessionRemote.connectEmbeddedOrServer(SessionRemote.java:343) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:125) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.Driver.connect(Driver.java:59) ~[h2-2.2.224.jar:2.2.224]
-	at com.zaxxer.hikari.util.DriverDataSource.getConnection(DriverDataSource.java:138) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.PoolBase.newConnection(PoolBase.java:359) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.PoolBase.newPoolEntry(PoolBase.java:201) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.HikariPool.createPoolEntry(HikariPool.java:470) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.HikariPool.checkFailFast(HikariPool.java:561) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.HikariPool.<init>(HikariPool.java:100) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:112) ~[HikariCP-5.0.1.jar:na]
-	at org.hibernate.engine.jdbc.connections.internal.DatasourceConnectionProviderImpl.getConnection(DatasourceConnectionProviderImpl.java:122) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator$ConnectionProviderJdbcConnectionAccess.obtainConnection(JdbcEnvironmentInitiator.java:428) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.resource.transaction.backend.jdbc.internal.DdlTransactionIsolatorNonJtaImpl.getIsolatedConnection(DdlTransactionIsolatorNonJtaImpl.java:46) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.resource.transaction.backend.jdbc.internal.DdlTransactionIsolatorNonJtaImpl.getIsolatedConnection(DdlTransactionIsolatorNonJtaImpl.java:39) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.internal.exec.ImprovedExtractionContextImpl.getJdbcConnection(ImprovedExtractionContextImpl.java:63) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.extract.spi.ExtractionContext.getQueryResults(ExtractionContext.java:43) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.extract.internal.SequenceInformationExtractorLegacyImpl.extractMetadata(SequenceInformationExtractorLegacyImpl.java:39) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.extract.internal.DatabaseInformationImpl.initializeSequences(DatabaseInformationImpl.java:66) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.extract.internal.DatabaseInformationImpl.<init>(DatabaseInformationImpl.java:60) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.internal.Helper.buildDatabaseInformation(Helper.java:185) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.internal.AbstractSchemaMigrator.doMigration(AbstractSchemaMigrator.java:98) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
+2026-05-31T01:50:51.085+05:30  INFO 39448 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : Starting NaukriAutomationApplication using Java 22.0.2 with PID 39448 (C:\Users\prabh\naukri-automation\backend\target\classes started by prabh in c:\Users\prabh\naukri-automation\backend)
+2026-05-31T01:50:51.089+05:30  INFO 39448 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : No active profile set, falling back to 1 default profile: "default"
+2026-05-31T01:50:51.980+05:30  INFO 39448 --- [naukri-automation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-05-31T01:50:52.087+05:30  INFO 39448 --- [naukri-automation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 93 ms. Found 6 JPA repository interfaces.
+2026-05-31T01:50:52.990+05:30  INFO 39448 --- [naukri-automation] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 4000 (http)
+2026-05-31T01:50:53.033+05:30  INFO 39448 --- [naukri-automation] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-05-31T01:50:53.034+05:30  INFO 39448 --- [naukri-automation] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.20]
+2026-05-31T01:50:53.465+05:30  INFO 39448 --- [naukri-automation] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-05-31T01:50:53.467+05:30  INFO 39448 --- [naukri-automation] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2313 ms
+2026-05-31T01:50:53.521+05:30  INFO 39448 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-05-31T01:50:54.132+05:30  INFO 39448 --- [naukri-automation] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn0: url=jdbc:h2:file:./data/naukri-db user=SA
+2026-05-31T01:50:54.135+05:30  INFO 39448 --- [naukri-automation] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-05-31T01:50:54.154+05:30  INFO 39448 --- [naukri-automation] [           main] o.s.b.a.h2.H2ConsoleAutoConfiguration    : H2 console available at '/h2-console'. Database available at 'jdbc:h2:file:./data/naukri-db'
+2026-05-31T01:50:54.731+05:30  INFO 39448 --- [naukri-automation] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-05-31T01:50:54.891+05:30  INFO 39448 --- [naukri-automation] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-05-31T01:50:54.987+05:30  INFO 39448 --- [naukri-automation] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-05-31T01:50:55.842+05:30  INFO 39448 --- [naukri-automation] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-05-31T01:50:55.935+05:30  WARN 39448 --- [naukri-automation] [           main] org.hibernate.orm.deprecation            : HHH90000025: H2Dialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-05-31T01:50:58.885+05:30  INFO 39448 --- [naukri-automation] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-05-31T01:50:58.989+05:30  WARN 39448 --- [naukri-automation] [           main] o.h.t.s.i.ExceptionHandlerLoggedImpl     : GenerationTarget encountered exception accepting command : Error executing DDL "create table workflow_steps (id bigint generated by default as identity, action_type varchar(255) not null check (action_type in ('NAVIGATE','CLICK','TYPE','WAIT','SELECT','SCROLL','CLEAR','PRESS_KEY')), description varchar(255), selector varchar(255), step_order integer not null, value varchar(2000), workflow_id bigint not null, primary key (id))" via JDBC [Syntax error in SQL statement "create table workflow_steps (id bigint generated by default as identity, action_type varchar(255) not null check (action_type in ('NAVIGATE','CLICK','TYPE','WAIT','SELECT','SCROLL','CLEAR','PRESS_KEY')), description varchar(255), selector varchar(255), step_order integer not null, [*]value varchar(2000), workflow_id bigint not null, primary key (id))"; expected "identifier";]
+org.hibernate.tool.schema.spi.CommandAcceptanceException: Error executing DDL "create table workflow_steps (id bigint generated by default as identity, action_type varchar(255) not null check (action_type in ('NAVIGATE','CLICK','TYPE','WAIT','SELECT','SCROLL','CLEAR','PRESS_KEY')), description varchar(255), selector varchar(255), step_order integer not null, value varchar(2000), workflow_id bigint not null, primary key (id))" via JDBC [Syntax error in SQL statement "create table workflow_steps (id bigint generated by default as identity, action_type varchar(255) not null check (action_type in ('NAVIGATE','CLICK','TYPE','WAIT','SELECT','SCROLL','CLEAR','PRESS_KEY')), description varchar(255), selector varchar(255), step_order integer not null, [*]value varchar(2000), workflow_id bigint not null, primary key (id))"; expected "identifier";]
+	at org.hibernate.tool.schema.internal.exec.GenerationTargetToDatabase.accept(GenerationTargetToDatabase.java:94) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
+	at org.hibernate.tool.schema.internal.AbstractSchemaMigrator.applySqlString(AbstractSchemaMigrator.java:574) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
+	at org.hibernate.tool.schema.internal.AbstractSchemaMigrator.applySqlStrings(AbstractSchemaMigrator.java:514) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
+	at org.hibernate.tool.schema.internal.AbstractSchemaMigrator.createTable(AbstractSchemaMigrator.java:315) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
+	at org.hibernate.tool.schema.internal.GroupedSchemaMigratorImpl.performTablesMigration(GroupedSchemaMigratorImpl.java:80) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
+	at org.hibernate.tool.schema.internal.AbstractSchemaMigrator.performMigration(AbstractSchemaMigrator.java:232) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
+	at org.hibernate.tool.schema.internal.AbstractSchemaMigrator.doMigration(AbstractSchemaMigrator.java:117) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
 	at org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator.performDatabaseAction(SchemaManagementToolCoordinator.java:286) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
 	at org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator.lambda$process$5(SchemaManagementToolCoordinator.java:145) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
 	at java.base/java.util.HashMap.forEach(HashMap.java:1429) ~[na:na]
@@ -348,122 +114,35 @@ org.h2.jdbc.JdbcSQLNonTransientConnectionException: Database may be already in u
 	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-3.2.5.jar:3.2.5]
 	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1343) ~[spring-boot-3.2.5.jar:3.2.5]
 	at com.naukri.automation.NaukriAutomationApplication.main(NaukriAutomationApplication.java:11) ~[classes/:na]
-Caused by: org.h2.mvstore.MVStoreException: The file is locked: C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db [2.2.224/7]
-	at org.h2.mvstore.DataUtils.newMVStoreException(DataUtils.java:996) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.SingleFileStore.lockFileChannel(SingleFileStore.java:143) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:117) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:81) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.MVStore.<init>(MVStore.java:286) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.MVStore$Builder.open(MVStore.java:2035) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.db.Store.<init>(Store.java:133) ~[h2-2.2.224.jar:2.2.224]
-	... 57 common frames omitted
-2026-05-31T00:53:28.773+05:30  WARN 37904 --- [naukri-automation] [           main] o.h.engine.jdbc.spi.SqlExceptionHelper   : SQL Error: 90020, SQLState: 90020
-2026-05-31T00:53:28.773+05:30 ERROR 37904 --- [naukri-automation] [           main] o.h.engine.jdbc.spi.SqlExceptionHelper   : Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]
-2026-05-31T00:53:28.788+05:30 ERROR 37904 --- [naukri-automation] [           main] j.LocalContainerEntityManagerFactoryBean : Failed to initialize JPA EntityManagerFactory: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]] [n/a]
-2026-05-31T00:53:28.789+05:30  WARN 37904 --- [naukri-automation] [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/autoconfigure/orm/jpa/HibernateJpaConfiguration.class]: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]] [n/a]
-2026-05-31T00:53:28.795+05:30  INFO 37904 --- [naukri-automation] [           main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
-2026-05-31T00:53:28.827+05:30  INFO 37904 --- [naukri-automation] [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
-Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
-2026-05-31T00:53:28.884+05:30 ERROR 37904 --- [naukri-automation] [           main] o.s.boot.SpringApplication               : Application run failed
-org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/autoconfigure/orm/jpa/HibernateJpaConfiguration.class]: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]] [n/a]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1786) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:600) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:522) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.AbstractApplicationContext.getBean(AbstractApplicationContext.java:1234) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:952) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:624) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:754) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:456) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:334) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1343) ~[spring-boot-3.2.5.jar:3.2.5]
-	at com.naukri.automation.NaukriAutomationApplication.main(NaukriAutomationApplication.java:11) ~[classes/:na]
-Caused by: jakarta.persistence.PersistenceException: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]] [n/a]
-	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.buildNativeEntityManagerFactory(AbstractEntityManagerFactoryBean.java:421) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.afterPropertiesSet(AbstractEntityManagerFactoryBean.java:396) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.afterPropertiesSet(LocalContainerEntityManagerFactoryBean.java:366) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1833) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1782) ~[spring-beans-6.1.6.jar:6.1.6]
-	... 16 common frames omitted
-Caused by: org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]] [n/a]
-	at org.hibernate.exception.internal.SQLExceptionTypeDelegate.convert(SQLExceptionTypeDelegate.java:51) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.exception.internal.StandardSQLExceptionConverter.convert(StandardSQLExceptionConverter.java:58) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:108) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:94) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.resource.transaction.backend.jdbc.internal.DdlTransactionIsolatorNonJtaImpl.getIsolatedConnection(DdlTransactionIsolatorNonJtaImpl.java:74) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.resource.transaction.backend.jdbc.internal.DdlTransactionIsolatorNonJtaImpl.getIsolatedConnection(DdlTransactionIsolatorNonJtaImpl.java:39) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.internal.exec.ImprovedExtractionContextImpl.getJdbcConnection(ImprovedExtractionContextImpl.java:63) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.extract.spi.ExtractionContext.getQueryResults(ExtractionContext.java:43) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.extract.internal.SequenceInformationExtractorLegacyImpl.extractMetadata(SequenceInformationExtractorLegacyImpl.java:39) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.extract.internal.DatabaseInformationImpl.initializeSequences(DatabaseInformationImpl.java:66) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.extract.internal.DatabaseInformationImpl.<init>(DatabaseInformationImpl.java:60) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.internal.Helper.buildDatabaseInformation(Helper.java:185) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.internal.AbstractSchemaMigrator.doMigration(AbstractSchemaMigrator.java:98) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator.performDatabaseAction(SchemaManagementToolCoordinator.java:286) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator.lambda$process$5(SchemaManagementToolCoordinator.java:145) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at java.base/java.util.HashMap.forEach(HashMap.java:1429) ~[na:na]
-	at org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator.process(SchemaManagementToolCoordinator.java:142) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.boot.internal.SessionFactoryObserverForSchemaExport.sessionFactoryCreated(SessionFactoryObserverForSchemaExport.java:37) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.internal.SessionFactoryObserverChain.sessionFactoryCreated(SessionFactoryObserverChain.java:35) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.internal.SessionFactoryImpl.<init>(SessionFactoryImpl.java:315) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.boot.internal.SessionFactoryBuilderImpl.build(SessionFactoryBuilderImpl.java:450) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl.build(EntityManagerFactoryBuilderImpl.java:1507) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.springframework.orm.jpa.vendor.SpringHibernateJpaPersistenceProvider.createContainerEntityManagerFactory(SpringHibernateJpaPersistenceProvider.java:75) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.createNativeEntityManagerFactory(LocalContainerEntityManagerFactoryBean.java:390) ~[spring-orm-6.1.6.jar:6.1.6]
-	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.buildNativeEntityManagerFactory(AbstractEntityManagerFactoryBean.java:409) ~[spring-orm-6.1.6.jar:6.1.6]
-	... 20 common frames omitted
-Caused by: org.h2.jdbc.JdbcSQLNonTransientConnectionException: Database may be already in use: "C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db". Possible solutions: close all other connection(s); use the server mode [90020-224]
-	at org.h2.message.DbException.getJdbcSQLException(DbException.java:690) ~[h2-2.2.224.jar:2.2.224]
+Caused by: org.h2.jdbc.JdbcSQLSyntaxErrorException: Syntax error in SQL statement "create table workflow_steps (id bigint generated by default as identity, action_type varchar(255) not null check (action_type in ('NAVIGATE','CLICK','TYPE','WAIT','SELECT','SCROLL','CLEAR','PRESS_KEY')), description varchar(255), selector varchar(255), step_order integer not null, [*]value varchar(2000), workflow_id bigint not null, primary key (id))"; expected "identifier"; SQL statement:
+create table workflow_steps (id bigint generated by default as identity, action_type varchar(255) not null check (action_type in ('NAVIGATE','CLICK','TYPE','WAIT','SELECT','SCROLL','CLEAR','PRESS_KEY')), description varchar(255), selector varchar(255), step_order integer not null, value varchar(2000), workflow_id bigint not null, primary key (id)) [42001-224]
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:514) ~[h2-2.2.224.jar:2.2.224]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.message.DbException.get(DbException.java:212) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.db.Store.convertMVStoreException(Store.java:165) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.db.Store.<init>(Store.java:142) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Database.<init>(Database.java:326) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Engine.openSession(Engine.java:92) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Engine.openSession(Engine.java:222) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.Engine.createSession(Engine.java:201) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.engine.SessionRemote.connectEmbeddedOrServer(SessionRemote.java:343) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:125) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.Driver.connect(Driver.java:59) ~[h2-2.2.224.jar:2.2.224]
-	at com.zaxxer.hikari.util.DriverDataSource.getConnection(DriverDataSource.java:138) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.PoolBase.newConnection(PoolBase.java:359) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.PoolBase.newPoolEntry(PoolBase.java:201) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.HikariPool.createPoolEntry(HikariPool.java:470) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.HikariPool.checkFailFast(HikariPool.java:561) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.pool.HikariPool.<init>(HikariPool.java:100) ~[HikariCP-5.0.1.jar:na]
-	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:112) ~[HikariCP-5.0.1.jar:na]
-	at org.hibernate.engine.jdbc.connections.internal.DatasourceConnectionProviderImpl.getConnection(DatasourceConnectionProviderImpl.java:122) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator$ConnectionProviderJdbcConnectionAccess.obtainConnection(JdbcEnvironmentInitiator.java:428) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	at org.hibernate.resource.transaction.backend.jdbc.internal.DdlTransactionIsolatorNonJtaImpl.getIsolatedConnection(DdlTransactionIsolatorNonJtaImpl.java:46) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
-	... 40 common frames omitted
-Caused by: org.h2.mvstore.MVStoreException: The file is locked: C:/Users/prabh/naukri-automation/backend/data/naukri-db.mv.db [2.2.224/7]
-	at org.h2.mvstore.DataUtils.newMVStoreException(DataUtils.java:996) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.SingleFileStore.lockFileChannel(SingleFileStore.java:143) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:117) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:81) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.MVStore.<init>(MVStore.java:286) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.MVStore$Builder.open(MVStore.java:2035) ~[h2-2.2.224.jar:2.2.224]
-	at org.h2.mvstore.db.Store.<init>(Store.java:133) ~[h2-2.2.224.jar:2.2.224]
-	... 57 common frames omitted
-[INFO] ------------------------------------------------------------------------
-[INFO] BUILD FAILURE
-[INFO] ------------------------------------------------------------------------
-[INFO] Total time:  30.024 s
-[INFO] Finished at: 2026-05-31T00:53:28+05:30
-[INFO] ------------------------------------------------------------------------
-[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:3.2.5:run (default-cli) on project naukri-automation: Process terminated with exit code: 1 -> [Help 1]
-[ERROR] 
-[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
-[ERROR] Re-run Maven using the -X switch to enable full debug logging.
-[ERROR] 
-[ERROR] For more information about the errors and possible solutions, please read the following articles:
-[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException
---- Exit Code: 1 ---
+	at org.h2.message.DbException.getSyntaxError(DbException.java:261) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.command.Parser.readIdentifier(Parser.java:5533) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.command.Parser.parseTableColumnDefinition(Parser.java:8994) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.command.Parser.parseCreateTable(Parser.java:8939) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.command.Parser.parseCreate(Parser.java:6404) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.command.Parser.parsePrepared(Parser.java:666) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.command.Parser.parse(Parser.java:592) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.command.Parser.parse(Parser.java:564) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.command.Parser.prepareCommand(Parser.java:483) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.engine.SessionLocal.prepareLocal(SessionLocal.java:639) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.engine.SessionLocal.prepareCommand(SessionLocal.java:559) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.jdbc.JdbcConnection.prepareCommand(JdbcConnection.java:1166) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.jdbc.JdbcStatement.executeInternal(JdbcStatement.java:245) ~[h2-2.2.224.jar:2.2.224]
+	at org.h2.jdbc.JdbcStatement.execute(JdbcStatement.java:231) ~[h2-2.2.224.jar:2.2.224]
+	at com.zaxxer.hikari.pool.ProxyStatement.execute(ProxyStatement.java:94) ~[HikariCP-5.0.1.jar:na]
+	at com.zaxxer.hikari.pool.HikariProxyStatement.execute(HikariProxyStatement.java) ~[HikariCP-5.0.1.jar:na]
+	at org.hibernate.tool.schema.internal.exec.GenerationTargetToDatabase.accept(GenerationTargetToDatabase.java:80) ~[hibernate-core-6.4.4.Final.jar:6.4.4.Final]
+	... 38 common frames omitted
+2026-05-31T01:50:59.008+05:30  INFO 39448 --- [naukri-automation] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-05-31T01:50:59.762+05:30  INFO 39448 --- [naukri-automation] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-05-31T01:51:00.934+05:30  WARN 39448 --- [naukri-automation] [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-05-31T01:51:01.961+05:30  INFO 39448 --- [naukri-automation] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 4000 (http) with context path ''
+2026-05-31T01:51:01.977+05:30  INFO 39448 --- [naukri-automation] [           main] c.n.a.NaukriAutomationApplication        : Started NaukriAutomationApplication in 11.573 seconds (process running for 12.167)
+[TIMEOUT] Process timed out after 120s
+--- Exit Code: -1 ---
 
-=== EXIT CODE: 1 ===
-=== STATUS: FAILED ===
+=== EXIT CODE: -1 ===
+=== STATUS: TIMEOUT ===
