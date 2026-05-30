@@ -1,10 +1,29 @@
-=== Target: web-scraper ===
-=== Command: python main.py --arg ===
-=== Timestamp: 2026-05-27T09:35:30.251959 ===
+=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation ===
+=== Commands ===
+  cd c:\Users\prabh\naukri-automation
+  mvn spring-boot:run
+  cd c:\Users\prabh\naukri-automation\frontend
+  npm i
+  npm start
 
-=== STDERR ===
-python: can't open file 'C:\\Users\\prabh\\AppData\\Local\\Temp\\nocopo_web-scraper\\main.py': [Errno 2] No such file or directory
+[STDERR] At line:1 char:37
++ cd c:\Users\prabh\naukri-automation && mvn spring-boot:run && cd c:\U ...
++                                     ~~
+The token '&&' is not a valid statement separator in this version.
+At line:1 char:60
++ cd c:\Users\prabh\naukri-automation && mvn spring-boot:run && cd c:\U ...
++                                                            ~~
+The token '&&' is not a valid statement separator in this version.
+At line:1 char:108
++ ... g-boot:run && cd c:\Users\prabh\naukri-automation\frontend && npm i & ...
++                                                                ~~
+The token '&&' is not a valid statement separator in this version.
+At line:1 char:117
++ ... n && cd c:\Users\prabh\naukri-automation\frontend && npm i && npm sta ...
++                                                                ~~
+The token '&&' is not a valid statement separator in this version.
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : InvalidEndOfLine
+ 
 
-
-=== EXIT CODE: 2 ===
-=== STATUS: FAILED ===
+--- Exit Code: 1 ---
