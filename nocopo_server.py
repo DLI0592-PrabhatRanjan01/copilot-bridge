@@ -1067,6 +1067,10 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         entry = config["entry_point"].strip()
         timeout_sec = config["timeout"]
 
+        # Prioritize manual mode: if run_command is provided, use manual mode regardless of setting
+        if run_cmd:
+            run_mode = "manual"
+
         if not is_step_skipped(skip_steps, "install") and run_mode == "manual" and run_cmd:
             # Manual mode: just install based on what's available
             req_file = os.path.join(repo_dir, "requirements.txt")
@@ -1111,8 +1115,8 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             else:
                 set_step("install", "done", "No dependencies found (skipped)")
             detected_services = []
-        elif not is_step_skipped(skip_steps, "install"):
-            # Auto mode: detect project structure
+        elif not is_step_skipped(skip_steps, "install") and run_mode != "manual":
+            # Auto mode: detect project structure (only if not in manual mode)
             detected_services = detect_project_type(repo_dir)
             if detected_services:
                 install_msgs = []
@@ -1209,11 +1213,11 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
 
                 try:
                     if sys.platform == "win32":
-                        # Use cmd.exe because older PowerShell versions do not support &&
+                        # Use cmd.exe for Windows && support AND shell=True for PATH (npm, mvn, etc)
                         cmd_args = ["cmd", "/d", "/s", "/c", chained_cmd]
                         proc = subprocess.run(
                             cmd_args, capture_output=True, text=True,
-                            timeout=timeout_sec, cwd=repo_dir, shell=False
+                            timeout=timeout_sec, cwd=repo_dir, shell=True
                         )
                     else:
                         # Use shell for Linux/Mac
@@ -1405,6 +1409,23 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 "target_repo": target_repo,
                 "exit_code": 0,
                 "run_status": "STARTED",
+                "output": "\n".join(all_outputs)[:10000],
+                "trigger": trigger_reason,
+                "completed_at": datetime.now().isoformat(),
+            }
+            nocopo_state["last_result"] = result
+            return result
+
+        # Check if push_output is explicitly skipped
+        if is_step_skipped(skip_steps, "push_output"):
+            set_step("push_output", "done", "Skipped (user preference)", "Skipped push_output step as per configuration")
+            set_step("done", "done", "Done (output not pushed to bridge)")
+            result = {
+                "success": True,
+                "iteration": 0,
+                "target_repo": target_repo,
+                "exit_code": exit_code,
+                "run_status": run_status,
                 "output": "\n".join(all_outputs)[:10000],
                 "trigger": trigger_reason,
                 "completed_at": datetime.now().isoformat(),
@@ -1736,11 +1757,11 @@ class NocopoHandler(BaseHTTPRequestHandler):
                     effective_cmd = " && ".join(effective_lines)
 
                     if sys.platform == "win32":
-                        # Use cmd.exe for Windows command execution
+                        # Use cmd.exe for Windows command execution with shell=True for PATH
                         proc = subprocess.run(
                             ["cmd", "/d", "/s", "/c", effective_cmd],
                             capture_output=True, text=True,
-                            timeout=t_sec, cwd=working_dir, shell=False
+                            timeout=t_sec, cwd=working_dir, shell=True
                         )
                     else:
                         proc = subprocess.run(
