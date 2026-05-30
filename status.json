@@ -8,6 +8,6 @@
   "timestamp": "2026-05-30T19:48:41.803507",
   "message": "Output ready (ERROR)",
   "nocopo_step": "run",
-  "nocopo_message": "Running command 2/5: mvn spring-boot:run",
-  "nocopo_updated_at": "2026-05-30T19:50:08.759823"
+  "nocopo_message": "Running command 3/5: cd c:\\Users\\prabh\\naukri-automation\\frontend",
+  "nocopo_updated_at": "2026-05-30T19:50:14.763045"
 }
