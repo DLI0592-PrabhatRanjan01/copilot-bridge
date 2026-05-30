@@ -41,6 +41,7 @@ nocopo_state = {
         "branch": "main",
         "poll_interval": 10,
         "timeout": 120,
+        "skip_steps": [],
         "entry_point": "",
         "run_command": "",
         "run_mode": "auto",       # "auto" = detect project type, "manual" = use run_command
@@ -262,6 +263,48 @@ def resolve_repo_dir(target_repo):
     base_dir = nocopo_state["config"].get("repo_base_dir", "").strip() or os.path.join(tempfile.gettempdir(), "nocopo_repos")
     safe_repo = target_repo.replace("/", "_").replace("\\", "_").strip() or "target_repo"
     return os.path.abspath(os.path.join(base_dir, safe_repo))
+
+
+def parse_skip_steps(value):
+    if not value:
+        return set()
+    if isinstance(value, str):
+        parts = [v.strip().lower() for v in value.replace(";", ",").split(",")]
+        return {p for p in parts if p}
+    if isinstance(value, list):
+        return {str(v).strip().lower() for v in value if str(v).strip()}
+    return set()
+
+
+def is_step_skipped(skip_steps, step_id):
+    return step_id.lower() in skip_steps
+
+
+def normalize_command_for_windows(cmd, cwd):
+    if not isinstance(cmd, list) or not cmd:
+        return cmd, False
+    normalized = list(cmd)
+    first = normalized[0]
+    first_lower = first.lower()
+
+    if sys.platform == "win32":
+        if first_lower in ("./mvnw", "mvnw"):
+            wrapper = os.path.join(cwd, "mvnw.cmd")
+            if os.path.exists(wrapper):
+                normalized[0] = wrapper
+        elif first_lower in ("./gradlew", "gradlew"):
+            wrapper = os.path.join(cwd, "gradlew.bat")
+            if os.path.exists(wrapper):
+                normalized[0] = wrapper
+
+    shell_needed = False
+    if sys.platform == "win32" and normalized:
+        launcher = os.path.basename(normalized[0]).lower()
+        shell_needed = launcher in {
+            "npm", "npm.cmd", "npx", "npx.cmd",
+            "mvn", "mvn.cmd", "gradle", "gradle.bat", "gradlew.bat", "mvnw.cmd"
+        }
+    return normalized, shell_needed
 
 
 def summarize_status(status):
@@ -562,18 +605,23 @@ def install_service(service):
     if not service.get("install_cmd"):
         return True, "No install needed"
     try:
+        cmd, shell_needed = normalize_command_for_windows(service["install_cmd"], service["dir"])
         result = subprocess.run(
-            service["install_cmd"],
+            cmd,
             capture_output=True, text=True,
             timeout=300, cwd=service["dir"],
-            shell=(sys.platform == "win32" and service["install_cmd"][0] in ["npm", "npx"])
+            shell=shell_needed
         )
         if result.returncode == 0:
             return True, f"{service['type']} deps installed"
         else:
-            return False, f"Install failed: {result.stderr[:200]}"
+            err_text = (result.stderr or result.stdout or "Unknown install failure")[:200]
+            return False, f"Install failed: {err_text}"
     except subprocess.TimeoutExpired:
         return False, "Install timeout (300s)"
+    except FileNotFoundError as e:
+        missing = service["install_cmd"][0] if isinstance(service.get("install_cmd"), list) and service["install_cmd"] else "command"
+        return False, f"Install error: command not found ({missing}) - {e}"
     except Exception as e:
         return False, f"Install error: {str(e)}"
 
@@ -700,8 +748,12 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 config["entry_point"] = status["entry_point"]
             if status.get("target_repo"):
                 config["target_repo"] = status["target_repo"]
+            if status.get("skip_steps") is not None:
+                config["skip_steps"] = status.get("skip_steps", [])
             request_type = status.get("request_type", "output")
             modules_command = status.get("modules_command", "")
+
+        skip_steps = parse_skip_steps(config.get("skip_steps", []))
 
         # DETECT
         set_step("detect", "done", trigger_reason)
@@ -726,7 +778,14 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             "updated_at": datetime.now().isoformat(),
         })
 
-        if os.path.exists(os.path.join(repo_dir, ".git")):
+        if is_step_skipped(skip_steps, "pull"):
+            if os.path.isdir(repo_dir) and os.listdir(repo_dir):
+                pull_method = "skipped-existing-dir"
+                set_step("pull", "done", f"Skipped by config, using existing directory -> {repo_dir}")
+            else:
+                set_step("pull", "error", f"Pull step skipped but repo directory not available: {repo_dir}")
+                return {"success": False, "error": "Pull skipped but repo directory is missing"}
+        elif os.path.exists(os.path.join(repo_dir, ".git")):
             set_step("pull", "running", f"Pulling latest into: {repo_dir}")
             result = subprocess.run(
                 ["git", "pull", "origin", branch],
@@ -779,51 +838,60 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         # MODULES MODE: Install deps → push to target repo → done
         # ============================================================
         if request_type == "modules":
-            set_step("install", "running", "Installing modules (MODULES mode)...")
-            update_bridge_progress("install", "MODULES mode: installing dependencies...")
-
-            # Determine install command
-            install_output = []
-            if modules_command:
-                # User-provided install command
-                cmd_str = modules_command
+            if is_step_skipped(skip_steps, "install"):
+                set_step("install", "done", "Skipped by config")
+                install_output = ["[INFO] Install step skipped by configuration"]
             else:
-                # Auto-detect
-                pkg_json = os.path.join(repo_dir, "package.json")
-                req_file = os.path.join(repo_dir, "requirements.txt")
-                pom_xml = os.path.join(repo_dir, "pom.xml")
-                if os.path.exists(pkg_json):
-                    cmd_str = "npm install"
-                elif os.path.exists(req_file):
-                    cmd_str = f"{sys.executable} -m pip install -r requirements.txt"
-                elif os.path.exists(pom_xml):
-                    cmd_str = "mvn clean install -DskipTests -q" if shutil.which("mvn") else "./mvnw clean install -DskipTests -q"
-                else:
-                    set_step("install", "error", "No package.json/requirements.txt/pom.xml found")
-                    return {"success": False, "error": "Cannot detect what to install"}
+                set_step("install", "running", "Installing modules (MODULES mode)...")
+                update_bridge_progress("install", "MODULES mode: installing dependencies...")
 
-            set_step("install", "running", f"Running: {cmd_str}")
-            try:
-                proc = subprocess.run(
-                    cmd_str, capture_output=True, text=True,
-                    timeout=600, cwd=repo_dir, shell=True
-                )
-                install_output.append(f"$ {cmd_str}")
-                if proc.stdout:
-                    install_output.append(proc.stdout)
-                if proc.stderr:
-                    install_output.append(f"[STDERR] {proc.stderr}")
-                install_output.append(f"Exit: {proc.returncode}")
-                if proc.returncode != 0:
-                    set_step("install", "error", f"Install failed (exit {proc.returncode})")
-                    return {"success": False, "error": f"Install failed: {proc.stderr[:300]}"}
-                set_step("install", "done", f"Modules installed via: {cmd_str}")
-            except subprocess.TimeoutExpired:
-                set_step("install", "error", "Install timed out (600s)")
-                return {"success": False, "error": "Install timeout"}
-            except Exception as e:
-                set_step("install", "error", str(e))
-                return {"success": False, "error": str(e)}
+                # Determine install command
+                install_output = []
+                if modules_command:
+                    # User-provided install command
+                    cmd_str = modules_command
+                else:
+                    # Auto-detect
+                    pkg_json = os.path.join(repo_dir, "package.json")
+                    req_file = os.path.join(repo_dir, "requirements.txt")
+                    pom_xml = os.path.join(repo_dir, "pom.xml")
+                    if os.path.exists(pkg_json):
+                        cmd_str = "npm install"
+                    elif os.path.exists(req_file):
+                        cmd_str = f"{sys.executable} -m pip install -r requirements.txt"
+                    elif os.path.exists(pom_xml):
+                        if shutil.which("mvn"):
+                            cmd_str = "mvn clean install -DskipTests -q"
+                        elif sys.platform == "win32" and os.path.exists(os.path.join(repo_dir, "mvnw.cmd")):
+                            cmd_str = "mvnw.cmd clean install -DskipTests -q"
+                        else:
+                            cmd_str = "./mvnw clean install -DskipTests -q"
+                    else:
+                        set_step("install", "error", "No package.json/requirements.txt/pom.xml found")
+                        return {"success": False, "error": "Cannot detect what to install"}
+
+                set_step("install", "running", f"Running: {cmd_str}")
+                try:
+                    proc = subprocess.run(
+                        cmd_str, capture_output=True, text=True,
+                        timeout=600, cwd=repo_dir, shell=True
+                    )
+                    install_output.append(f"$ {cmd_str}")
+                    if proc.stdout:
+                        install_output.append(proc.stdout)
+                    if proc.stderr:
+                        install_output.append(f"[STDERR] {proc.stderr}")
+                    install_output.append(f"Exit: {proc.returncode}")
+                    if proc.returncode != 0:
+                        set_step("install", "error", f"Install failed (exit {proc.returncode})")
+                        return {"success": False, "error": f"Install failed: {proc.stderr[:300]}"}
+                    set_step("install", "done", f"Modules installed via: {cmd_str}")
+                except subprocess.TimeoutExpired:
+                    set_step("install", "error", "Install timed out (600s)")
+                    return {"success": False, "error": "Install timeout"}
+                except Exception as e:
+                    set_step("install", "error", str(e))
+                    return {"success": False, "error": str(e)}
 
             # PUSH modules back to target repo
             set_step("run", "running", "Pushing installed modules to target repo...")
@@ -869,6 +937,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 "target_repo": target_repo,
                 "iteration": iteration,
                 "exit_code": 0,
+                "skip_steps": sorted(skip_steps),
                 "timestamp": datetime.now().isoformat(),
                 "message": f"Modules installed & pushed to {target_repo}. COPO should pull."
             }
@@ -924,15 +993,19 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         # OUTPUT MODE (default): Install → Run → Capture → Push output
         # ============================================================
         # INSTALL
-        set_step("install", "running", "Checking dependencies...")
-        update_bridge_progress("install", "Installing dependencies...")
+        if is_step_skipped(skip_steps, "install"):
+            set_step("install", "done", "Skipped by config")
+            detected_services = []
+        else:
+            set_step("install", "running", "Checking dependencies...")
+            update_bridge_progress("install", "Installing dependencies...")
 
         run_mode = config.get("run_mode", "auto")
         run_cmd = config["run_command"].strip()
         entry = config["entry_point"].strip()
         timeout_sec = config["timeout"]
 
-        if run_mode == "manual" and run_cmd:
+        if not is_step_skipped(skip_steps, "install") and run_mode == "manual" and run_cmd:
             # Manual mode: just install based on what's available
             req_file = os.path.join(repo_dir, "requirements.txt")
             pkg_json = os.path.join(repo_dir, "package.json")
@@ -950,7 +1023,12 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 )
                 set_step("install", "done", "npm packages installed")
             elif os.path.exists(pom_xml):
-                mvn = "mvn" if shutil.which("mvn") else "./mvnw"
+                if shutil.which("mvn"):
+                    mvn = "mvn"
+                elif sys.platform == "win32" and os.path.exists(os.path.join(repo_dir, "mvnw.cmd")):
+                    mvn = "mvnw.cmd"
+                else:
+                    mvn = "./mvnw"
                 subprocess.run(
                     [mvn, "clean", "install", "-DskipTests", "-q"],
                     capture_output=True, text=True, timeout=300, cwd=repo_dir
@@ -959,7 +1037,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             else:
                 set_step("install", "done", "No dependencies found (skipped)")
             detected_services = []
-        else:
+        elif not is_step_skipped(skip_steps, "install"):
             # Auto mode: detect project structure
             detected_services = detect_project_type(repo_dir)
             if detected_services:
@@ -1152,27 +1230,35 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 f"Exit code: {exit_code} ({run_status})")
 
         # CAPTURE
-        set_step("capture", "running", "Formatting output...")
-        update_bridge_progress("capture", "Capturing output...")
-        output_parts = [
-            f"=== Target: {target_repo} ===",
-            f"=== Run Mode: {run_mode} ===",
-            f"=== Repo Cloned At: {repo_dir} ===",
-            f"=== Python Interpreter: {sys.executable} ===",
-            f"=== Timestamp: {datetime.now().isoformat()} ===",
-        ]
-        if detected_services:
-            output_parts.append(f"=== Detected: {', '.join(s['name']+'('+s['type']+')' for s in detected_services)} ===")
-        if stdout:
-            output_parts.append("\n=== OUTPUT ===")
-            output_parts.append(stdout)
-        if stderr:
-            output_parts.append("\n=== STDERR ===")
-            output_parts.append(stderr)
-        output_parts.append(f"\n=== EXIT CODE: {exit_code} ===")
-        output_parts.append(f"=== STATUS: {run_status} ===")
-        full_output = "\n".join(output_parts)
-        set_step("capture", "done", f"Captured ({len(full_output)} bytes)")
+        if is_step_skipped(skip_steps, "capture"):
+            set_step("capture", "done", "Skipped by config")
+            full_output = stdout if stdout else ""
+            if stderr:
+                full_output += ("\n" if full_output else "") + f"[STDERR] {stderr}"
+            if not full_output.strip():
+                full_output = f"Capture skipped. Exit code: {exit_code} ({run_status})"
+        else:
+            set_step("capture", "running", "Formatting output...")
+            update_bridge_progress("capture", "Capturing output...")
+            output_parts = [
+                f"=== Target: {target_repo} ===",
+                f"=== Run Mode: {run_mode} ===",
+                f"=== Repo Cloned At: {repo_dir} ===",
+                f"=== Python Interpreter: {sys.executable} ===",
+                f"=== Timestamp: {datetime.now().isoformat()} ===",
+            ]
+            if detected_services:
+                output_parts.append(f"=== Detected: {', '.join(s['name']+'('+s['type']+')' for s in detected_services)} ===")
+            if stdout:
+                output_parts.append("\n=== OUTPUT ===")
+                output_parts.append(stdout)
+            if stderr:
+                output_parts.append("\n=== STDERR ===")
+                output_parts.append(stderr)
+            output_parts.append(f"\n=== EXIT CODE: {exit_code} ===")
+            output_parts.append(f"=== STATUS: {run_status} ===")
+            full_output = "\n".join(output_parts)
+            set_step("capture", "done", f"Captured ({len(full_output)} bytes)")
 
         # PUSH OUTPUT
         set_step("push_output", "running", "Pushing output to copilot-bridge...")
@@ -1187,6 +1273,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             "target_repo": target_repo,
             "iteration": iteration,
             "exit_code": exit_code,
+            "skip_steps": sorted(skip_steps),
             "timestamp": datetime.now().isoformat(),
             "message": f"Output ready ({run_status})"
         }

@@ -205,6 +205,11 @@
                         <div class="hint">One command per line (or use &amp;&amp; to chain). Overrides auto-detect.</div>
                     </div>
                     <div class="config-group">
+                        <label>Skip Steps (optional)</label>
+                        <input type="text" id="cfgSkipSteps" placeholder="install,capture" />
+                        <div class="hint">Comma-separated NOCOPO step ids to skip (for example: install, capture).</div>
+                    </div>
+                    <div class="config-group">
                         <label>Poll Interval (seconds)</label>
                         <input type="number" id="cfgPollInterval" value="10" min="5" max="120" />
                         <div class="hint">How often to check GitHub for COPO changes</div>
@@ -399,6 +404,7 @@ function getConfigFromUI() {
         repo_base_dir: document.getElementById('cfgRepoBaseDir').value.trim(),
         entry_point: document.getElementById('cfgEntryPoint').value.trim(),
         run_command: document.getElementById('cfgRunCommand').value.trim(),
+        skip_steps: document.getElementById('cfgSkipSteps').value.trim(),
         run_mode: document.getElementById('cfgRunMode').value || 'auto',
         poll_interval: parseInt(document.getElementById('cfgPollInterval').value) || 10,
         timeout: parseInt(document.getElementById('cfgTimeout').value) || 120,
@@ -415,6 +421,9 @@ function loadConfigToUI(cfg) {
     document.getElementById('cfgRepoBaseDir').value = cfg.repo_base_dir || '';
     document.getElementById('cfgEntryPoint').value = cfg.entry_point || '';
     document.getElementById('cfgRunCommand').value = cfg.run_command || '';
+    document.getElementById('cfgSkipSteps').value = Array.isArray(cfg.skip_steps)
+        ? cfg.skip_steps.join(',')
+        : (cfg.skip_steps || '');
     document.getElementById('cfgRunMode').value = cfg.run_mode || 'auto';
     document.getElementById('cfgPollInterval').value = cfg.poll_interval || 10;
     document.getElementById('cfgTimeout').value = cfg.timeout || 120;

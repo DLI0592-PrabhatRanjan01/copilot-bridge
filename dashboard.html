@@ -203,6 +203,11 @@
                         <div class="hint">One command per line or use &amp;&amp; to chain. Used in Manual mode.</div>
                     </div>
                     <div class="config-group">
+                        <label>Skip Steps (optional)</label>
+                        <input type="text" id="cfgSkipSteps" placeholder="install,capture,save" />
+                        <div class="hint">Comma-separated step ids to skip. Common: install, capture, save.</div>
+                    </div>
+                    <div class="config-group">
                         <label>Timeout (seconds)</label>
                         <input type="number" id="cfgTimeout" value="120" min="10" max="600" />
                     </div>
@@ -338,6 +343,7 @@ function getConfigFromUI() {
         branch: document.getElementById('cfgBranch').value.trim() || 'main',
         entry_point: document.getElementById('cfgEntryPoint').value.trim(),
         run_command: document.getElementById('cfgRunCommand').value.trim(),
+        skip_steps: document.getElementById('cfgSkipSteps').value.trim(),
         run_mode: document.getElementById('cfgRunMode').value || 'auto',
         request_type: document.getElementById('cfgRequestType').value || 'output',
         modules_command: document.getElementById('cfgModulesCommand').value.trim(),
@@ -357,6 +363,9 @@ function loadConfigToUI(cfg) {
     document.getElementById('cfgBranch').value = cfg.branch || 'main';
     document.getElementById('cfgEntryPoint').value = cfg.entry_point || '';
     document.getElementById('cfgRunCommand').value = cfg.run_command || '';
+    document.getElementById('cfgSkipSteps').value = Array.isArray(cfg.skip_steps)
+        ? cfg.skip_steps.join(',')
+        : (cfg.skip_steps || '');
     document.getElementById('cfgRunMode').value = cfg.run_mode || 'auto';
     document.getElementById('cfgRequestType').value = cfg.request_type || 'output';
     document.getElementById('cfgModulesCommand').value = cfg.modules_command || '';

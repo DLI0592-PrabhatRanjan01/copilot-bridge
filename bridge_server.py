@@ -37,6 +37,7 @@ pipeline_state = {
         "entry_point": "",      # e.g. main.py (auto-detect if empty)
         "run_command": "",      # Custom run command (optional)
         "run_mode": "auto",    # "auto" = detect project type, "manual" = use run_command
+        "skip_steps": [],        # Optional list: install,capture,save,pull
         "commit_message": "",   # Custom commit message (auto if empty)
         "save_output_locally": True,
         "output_save_path": "", # Where to save output on COPO side
@@ -83,6 +84,21 @@ def reset_steps():
         for s in PIPELINE_STEPS
     ]
     pipeline_state["current_step"] = None
+
+
+def parse_skip_steps(value):
+    if not value:
+        return set()
+    if isinstance(value, str):
+        parts = [v.strip().lower() for v in value.replace(";", ",").split(",")]
+        return {p for p in parts if p}
+    if isinstance(value, list):
+        return {str(v).strip().lower() for v in value if str(v).strip()}
+    return set()
+
+
+def is_step_skipped(skip_steps, step_id):
+    return step_id.lower() in skip_steps
 
 
 def get_headers():
@@ -430,6 +446,7 @@ def git_add_commit_push(cwd, commit_message, branch="main"):
 def run_pipeline():
     """Execute the full COPO → NOCOPO → COPO pipeline."""
     config = pipeline_state["config"]
+    skip_steps = parse_skip_steps(config.get("skip_steps", []))
 
     try:
         # === STEP 1: SCAN local changes using git status ===
@@ -565,6 +582,7 @@ def run_pipeline():
             "entry_point": config["entry_point"],
             "run_command": config["run_command"],
             "run_mode": config.get("run_mode", "auto"),
+            "skip_steps": sorted(skip_steps),
             "request_type": config.get("request_type", "output"),
             "modules_command": config.get("modules_command", ""),
             "message": f"Code pushed from {os.path.basename(local_path)}"
@@ -733,24 +751,27 @@ def run_pipeline():
                 set_step("pull", "done", "Cloned fresh repo")
 
             # === STEP 5: INSTALL dependencies ===
-            set_step("install", "running", "Checking for dependencies...")
-            req_file = os.path.join(repo_dir, "requirements.txt")
-            pkg_json = os.path.join(repo_dir, "package.json")
-
-            if os.path.exists(req_file):
-                result = subprocess.run(
-                    [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
-                    capture_output=True, text=True, timeout=120, cwd=repo_dir
-                )
-                set_step("install", "done", "Python requirements installed")
-            elif os.path.exists(pkg_json):
-                result = subprocess.run(
-                    ["npm", "install"],
-                    capture_output=True, text=True, timeout=120, cwd=repo_dir, shell=True
-                )
-                set_step("install", "done", "npm packages installed")
+            if is_step_skipped(skip_steps, "install"):
+                set_step("install", "done", "Skipped by config")
             else:
-                set_step("install", "done", "No dependencies file found (skipped)")
+                set_step("install", "running", "Checking for dependencies...")
+                req_file = os.path.join(repo_dir, "requirements.txt")
+                pkg_json = os.path.join(repo_dir, "package.json")
+
+                if os.path.exists(req_file):
+                    result = subprocess.run(
+                        [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
+                        capture_output=True, text=True, timeout=120, cwd=repo_dir
+                    )
+                    set_step("install", "done", "Python requirements installed")
+                elif os.path.exists(pkg_json):
+                    result = subprocess.run(
+                        ["npm", "install"],
+                        capture_output=True, text=True, timeout=120, cwd=repo_dir, shell=True
+                    )
+                    set_step("install", "done", "npm packages installed")
+                else:
+                    set_step("install", "done", "No dependencies file found (skipped)")
 
             # === STEP 6: RUN the code ===
             set_step("run", "running", "Executing code...")
@@ -822,22 +843,30 @@ def run_pipeline():
                     f"Exit code: {exit_code} ({run_status})")
 
             # === STEP 7: CAPTURE output ===
-            set_step("capture", "running", "Formatting output...")
-            output_parts = []
-            output_parts.append(f"=== Target: {target_repo} ===")
-            output_parts.append(f"=== Command: {' '.join(cmd_parts)} ===")
-            output_parts.append(f"=== Timestamp: {datetime.now().isoformat()} ===")
-            if stdout:
-                output_parts.append("\n=== STDOUT ===")
-                output_parts.append(stdout)
-            if stderr:
-                output_parts.append("\n=== STDERR ===")
-                output_parts.append(stderr)
-            output_parts.append(f"\n=== EXIT CODE: {exit_code} ===")
-            output_parts.append(f"=== STATUS: {run_status} ===")
+            if is_step_skipped(skip_steps, "capture"):
+                set_step("capture", "done", "Skipped by config")
+                full_output = stdout if stdout else ""
+                if stderr:
+                    full_output += ("\n" if full_output else "") + f"[STDERR] {stderr}"
+                if not full_output.strip():
+                    full_output = f"Capture skipped. Exit code: {exit_code} ({run_status})"
+            else:
+                set_step("capture", "running", "Formatting output...")
+                output_parts = []
+                output_parts.append(f"=== Target: {target_repo} ===")
+                output_parts.append(f"=== Command: {' '.join(cmd_parts)} ===")
+                output_parts.append(f"=== Timestamp: {datetime.now().isoformat()} ===")
+                if stdout:
+                    output_parts.append("\n=== STDOUT ===")
+                    output_parts.append(stdout)
+                if stderr:
+                    output_parts.append("\n=== STDERR ===")
+                    output_parts.append(stderr)
+                output_parts.append(f"\n=== EXIT CODE: {exit_code} ===")
+                output_parts.append(f"=== STATUS: {run_status} ===")
 
-            full_output = "\n".join(output_parts)
-            set_step("capture", "done", f"Output captured ({len(full_output)} bytes)")
+                full_output = "\n".join(output_parts)
+                set_step("capture", "done", f"Output captured ({len(full_output)} bytes)")
 
             # === STEP 8: PUSH output to bridge ===
             set_step("push_output", "running", "Pushing output to copilot-bridge...")
@@ -850,6 +879,7 @@ def run_pipeline():
                 "target_repo": target_repo,
                 "iteration": iteration,
                 "exit_code": exit_code,
+                "skip_steps": sorted(skip_steps),
                 "timestamp": datetime.now().isoformat(),
                 "message": f"Output ready ({run_status})"
             }
@@ -896,10 +926,12 @@ def run_pipeline():
             set_step("receive", "done", "Output received")
 
         # === STEP 10: SAVE locally ===
-        set_step("save", "running", "Saving results...")
         iteration = iteration if 'iteration' in dir() else len(pipeline_state["history"]) + 1
         saved_path = None
-        if config["save_output_locally"]:
+        if is_step_skipped(skip_steps, "save"):
+            set_step("save", "done", "Skipped by config")
+        elif config["save_output_locally"]:
+            set_step("save", "running", "Saving results...")
             save_dir = config["output_save_path"] or config["local_repo_path"]
             if save_dir and os.path.isdir(save_dir):
                 saved_path = os.path.join(save_dir, f"output_iter_{iteration}.txt")
