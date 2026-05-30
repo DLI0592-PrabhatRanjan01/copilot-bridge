@@ -780,7 +780,11 @@ def run_pipeline():
             timeout_sec = config["timeout"]
 
             if run_cmd:
-                cmd_parts = run_cmd.split()
+                if sys.platform == "win32":
+                    cmd_parts = ["powershell", "-NoProfile", "-NonInteractive",
+                                 "-ExecutionPolicy", "Bypass", "-Command", run_cmd]
+                else:
+                    cmd_parts = run_cmd.split()
             elif entry:
                 entry_path = os.path.join(repo_dir, entry)
                 if not os.path.exists(entry_path):

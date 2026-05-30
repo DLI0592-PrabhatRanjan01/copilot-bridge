@@ -1088,12 +1088,16 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 set_step("run", "running", f"[{i+1}/{len(commands)}] {cmd_label}")
                 update_bridge_progress("run", f"Running command {i+1}/{len(commands)}: {cmd_label}")
 
-                cmd_parts = cmd_str.split()
+                if sys.platform == "win32":
+                    ps_cmd = ["powershell", "-NoProfile", "-NonInteractive",
+                              "-ExecutionPolicy", "Bypass", "-Command", cmd_str]
+                    run_args = {"args": ps_cmd, "shell": False}
+                else:
+                    run_args = {"args": cmd_str, "shell": True}
                 try:
                     proc = subprocess.run(
-                        cmd_parts, capture_output=True, text=True,
-                        timeout=timeout_sec, cwd=repo_dir,
-                        shell=(sys.platform == "win32" and cmd_parts[0] in ["npm", "npx", "mvn", "gradle", "gradlew.bat"])
+                        **run_args, capture_output=True, text=True,
+                        timeout=timeout_sec, cwd=repo_dir
                     )
                     all_outputs.append(f"--- Command [{i+1}]: {cmd_str} ---")
                     all_outputs.append(f"--- Full CWD: {repo_dir} ---")
