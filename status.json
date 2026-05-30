@@ -11,7 +11,7 @@
   "request_type": "output",
   "modules_command": "",
   "message": "Code pushed from naukri-automation",
-  "nocopo_step": "pull",
-  "nocopo_message": "Pulling naukri-automation...",
-  "nocopo_updated_at": "2026-05-30T18:41:10.244596"
+  "nocopo_step": "install",
+  "nocopo_message": "Installing dependencies...",
+  "nocopo_updated_at": "2026-05-30T18:41:16.527311"
 }
