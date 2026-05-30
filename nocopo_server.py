@@ -1215,15 +1215,22 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 else:
                     set_step("install", "done", "No dependencies detected (skipped)")
 
-        # RUN
-        set_step("run", "running", "Executing code...")
-        update_bridge_progress("run", "Running code...")
-
         all_outputs = []
         exit_code = 0
         run_status = "SUCCESS"
 
-        if run_mode == "manual" and run_cmd:
+        # RUN
+        if is_step_skipped(skip_steps, "run"):
+            run_status = "SKIPPED"
+            all_outputs.append("=== RUN STEP SKIPPED ===")
+            all_outputs.append("Execution was skipped by configuration.")
+            set_step("run", "done", "Skipped by config", "\n".join(all_outputs))
+            update_bridge_progress("run", "Skipped by config")
+        else:
+            set_step("run", "running", "Executing code...")
+            update_bridge_progress("run", "Running code...")
+
+        if not is_step_skipped(skip_steps, "run") and run_mode == "manual" and run_cmd:
             # Manual mode: run command(s) specified by user
             # Supports:
             #   - sequential commands (default, line-by-line with && chaining)
@@ -1300,7 +1307,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             else:
                 set_step("run", "done" if exit_code == 0 else "error", f"Exit code: {exit_code}", full_cmd_output)
 
-        elif run_mode == "manual" and entry:
+        elif not is_step_skipped(skip_steps, "run") and run_mode == "manual" and entry:
             # Manual mode with entry point only
             entry_path = os.path.join(repo_dir, entry)
             if not os.path.exists(entry_path):
@@ -1322,7 +1329,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 cmd_parts, repo_dir, "run", all_outputs, timeout_sec
             )
 
-        elif detected_services:
+        elif not is_step_skipped(skip_steps, "run") and detected_services:
             # Auto mode: run detected services
             svc_info = ", ".join(f"{s['name']}({s['type']})" for s in detected_services)
             set_step("run", "running", f"Auto-running: {svc_info}")
@@ -1352,7 +1359,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                     exit_code = svc_exit
                     run_status = svc_status
 
-        else:
+        elif not is_step_skipped(skip_steps, "run"):
             # Fallback: try to find and run something
             candidates = ["main.py", "app.py", "run.py", "scraper.py", "index.py"]
             entry_path = None
