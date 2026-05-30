@@ -12,7 +12,7 @@
   "request_type": "output",
   "modules_command": "",
   "message": "Code pushed from naukri-automation",
-  "nocopo_step": "run",
-  "nocopo_message": "Running frontend (react) in c:\\Users\\prabh\\naukri-automation\\frontend",
-  "nocopo_updated_at": "2026-05-30T23:49:14.318584"
+  "nocopo_step": "capture",
+  "nocopo_message": "Capturing output...",
+  "nocopo_updated_at": "2026-05-30T23:49:16.368278"
 }
