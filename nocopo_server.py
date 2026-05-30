@@ -37,6 +37,7 @@ nocopo_state = {
         "pat_token": os.environ.get("GITHUB_PAT", ""),
         "bridge_repo": "copilot-bridge",
         "target_repo": "web-scraper",
+        "repo_base_dir": os.path.join(tempfile.gettempdir(), "nocopo_repos"),
         "branch": "main",
         "poll_interval": 10,
         "timeout": 120,
@@ -235,14 +236,32 @@ def get_status_json():
 
 
 def clone_or_reuse_repo(repo_url, branch, repo_dir):
-    """Clone is temporarily disabled; only reuse an existing working directory."""
-    # NOTE: Clone is intentionally disabled for now because the current environment
-    # keeps failing on destination-path conflicts. Re-enable git clone here once
-    # the workspace provisioning is stable again.
-    if os.path.isdir(repo_dir) and os.listdir(repo_dir):
-        return True, "existing-dir", f"Clone disabled, using existing directory -> {repo_dir}"
+    """Clone into repo_dir when missing; otherwise reuse the existing directory."""
+    if os.path.isdir(repo_dir) and os.path.exists(os.path.join(repo_dir, ".git")):
+        return True, "pull", f"Repository exists, will pull in: {repo_dir}"
 
-    return False, None, f"Clone disabled and no existing directory available: {repo_dir}"
+    if os.path.isdir(repo_dir) and os.listdir(repo_dir):
+        return False, None, f"Directory exists but is not a git repo: {repo_dir}"
+
+    parent = os.path.dirname(repo_dir)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+    result = subprocess.run(
+        ["git", "clone", "--branch", branch, repo_url, repo_dir],
+        capture_output=True, text=True, timeout=60
+    )
+    if result.returncode == 0:
+        return True, "clone", f"Cloned fresh -> {repo_dir}"
+
+    error_text = (result.stderr or result.stdout or "Unknown clone error")[:200]
+    return False, None, f"Clone failed: {error_text}"
+
+
+def resolve_repo_dir(target_repo):
+    base_dir = nocopo_state["config"].get("repo_base_dir", "").strip() or os.path.join(tempfile.gettempdir(), "nocopo_repos")
+    safe_repo = target_repo.replace("/", "_").replace("\\", "_").strip() or "target_repo"
+    return os.path.abspath(os.path.join(base_dir, safe_repo))
 
 
 def summarize_status(status):
@@ -695,7 +714,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
         user = config["github_user"]
         branch = config["branch"]
         target_repo = config["target_repo"]
-        repo_dir = os.path.join(tempfile.gettempdir(), f"nocopo_{target_repo}")
+        repo_dir = resolve_repo_dir(target_repo)
         repo_url = f"https://{token}@github.com/{user}/{target_repo}.git"
         used_existing_repo = os.path.exists(os.path.join(repo_dir, ".git"))
         pull_method = "pull" if used_existing_repo else None
@@ -719,18 +738,30 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                     set_step("pull", "error", f"Pull failed and {fallback_message}")
                     return {"success": False, "error": "Pull failed"}
                 pull_method = fallback_method
-                set_step("pull", "done", f"Pull failed, reusing existing directory -> {repo_dir}")
+                if fallback_method == "clone":
+                    set_step("pull", "done", fallback_message)
+                else:
+                    set_step("pull", "done", f"Pull failed, reusing existing directory -> {repo_dir}")
             else:
                 set_step("pull", "done", f"Pulled latest -> {repo_dir}")
         else:
-            if os.path.isdir(repo_dir) and os.listdir(repo_dir):
-                pull_method = "existing-dir"
-                set_step("pull", "done", f"Using existing directory -> {repo_dir}")
+            ok, fallback_method, fallback_message = clone_or_reuse_repo(repo_url, branch, repo_dir)
+            if not ok:
+                set_step("pull", "error", fallback_message)
+                return {"success": False, "error": "Clone/pull prep failed"}
+
+            if fallback_method == "pull":
+                set_step("pull", "running", f"Pulling latest into: {repo_dir}")
+                result = subprocess.run(
+                    ["git", "pull", "origin", branch],
+                    capture_output=True, text=True, cwd=repo_dir, timeout=60
+                )
+                if result.returncode != 0:
+                    set_step("pull", "error", f"Pull failed: {(result.stderr or result.stdout or '')[:200]}")
+                    return {"success": False, "error": "Pull failed"}
+                pull_method = "pull"
+                set_step("pull", "done", f"Pulled latest -> {repo_dir}")
             else:
-                ok, fallback_method, fallback_message = clone_or_reuse_repo(repo_url, branch, repo_dir)
-                if not ok:
-                    set_step("pull", "error", fallback_message)
-                    return {"success": False, "error": "Clone disabled"}
                 pull_method = fallback_method
                 set_step("pull", "done", fallback_message)
 

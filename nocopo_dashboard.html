@@ -182,6 +182,11 @@
                         <input type="text" id="cfgBranch" value="main" />
                     </div>
                     <div class="config-group">
+                        <label>Local Repo Base Directory (NOCOPO)</label>
+                        <input type="text" id="cfgRepoBaseDir" placeholder="C:\\nocopo\\repos" />
+                        <div class="hint">Repo location for clone/pull checks. Each target repo is stored as a subfolder here.</div>
+                    </div>
+                    <div class="config-group">
                         <label>Entry Point (optional)</label>
                         <input type="text" id="cfgEntryPoint" placeholder="main.py (auto-detect if empty)" />
                         <div class="hint">Leave empty to auto-detect (main.py, app.py, etc.)</div>
@@ -391,6 +396,7 @@ function getConfigFromUI() {
         github_user: document.getElementById('cfgGithubUser').value.trim(),
         bridge_repo: document.getElementById('cfgBridgeRepo').value.trim() || 'copilot-bridge',
         branch: document.getElementById('cfgBranch').value.trim() || 'main',
+        repo_base_dir: document.getElementById('cfgRepoBaseDir').value.trim(),
         entry_point: document.getElementById('cfgEntryPoint').value.trim(),
         run_command: document.getElementById('cfgRunCommand').value.trim(),
         run_mode: document.getElementById('cfgRunMode').value || 'auto',
@@ -406,6 +412,7 @@ function loadConfigToUI(cfg) {
     document.getElementById('cfgGithubUser').value = cfg.github_user || 'DLI0592-PrabhatRanjan01';
     document.getElementById('cfgBridgeRepo').value = cfg.bridge_repo || 'copilot-bridge';
     document.getElementById('cfgBranch').value = cfg.branch || 'main';
+    document.getElementById('cfgRepoBaseDir').value = cfg.repo_base_dir || '';
     document.getElementById('cfgEntryPoint').value = cfg.entry_point || '';
     document.getElementById('cfgRunCommand').value = cfg.run_command || '';
     document.getElementById('cfgRunMode').value = cfg.run_mode || 'auto';
