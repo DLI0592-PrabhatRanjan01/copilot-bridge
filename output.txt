@@ -1,22 +1,23 @@
-=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation ===
-=== Commands ===
-  cd c:\Users\prabh\naukri-automation\naukri-automation && mvn spring-boot:run
-  cd c:\Users\prabh\naukri-automation\frontend && npm start
+=== Target: naukri-automation ===
+=== Run Mode: auto ===
+=== Repo Cloned At: c:\Users\prabh\naukri-automation\naukri-automation ===
+=== Python Interpreter: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe ===
+=== Timestamp: 2026-05-30T20:36:38.015281 ===
+=== Detected: backend(springboot), frontend(react) ===
 
-[STDERR] At line:1 char:55
-+ cd c:\Users\prabh\naukri-automation\naukri-automation && mvn spring-b ...
-+                                                       ~~
-The token '&&' is not a valid statement separator in this version.
-At line:1 char:78
-+ ... naukri-automation\naukri-automation && mvn spring-boot:run && cd c:\U ...
-+                                                                ~~
-The token '&&' is not a valid statement separator in this version.
-At line:1 char:126
-+ ... g-boot:run && cd c:\Users\prabh\naukri-automation\frontend && npm sta ...
-+                                                                ~~
-The token '&&' is not a valid statement separator in this version.
-    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
-    + FullyQualifiedErrorId : InvalidEndOfLine
- 
+=== OUTPUT ===
+=== Service: backend (springboot) ===
+=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation\backend ===
+=== Command: mvn spring-boot:run ===
+[STDERR] [WinError 2] The system cannot find the file specified
+=== Exit: -1 (ERROR) ===
 
---- Exit Code: 1 ---
+=== Service: frontend (react) ===
+=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation\frontend ===
+=== Command: npm run build ===
+[STDERR] [WinError 2] The system cannot find the file specified
+=== Exit: -1 (ERROR) ===
+
+
+=== EXIT CODE: -1 ===
+=== STATUS: ERROR ===
