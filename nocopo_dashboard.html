@@ -582,6 +582,7 @@ async function pollStatus() {
 // RENDER FUNCTIONS
 // ============================================================
 let currentStepsData = [];
+let selectedStepIndex = -1;
 
 function renderSteps(steps, currentStep, running) {
     if (!steps || steps.length === 0) return;
@@ -598,7 +599,7 @@ function renderSteps(steps, currentStep, running) {
                      step.status === 'error' ? '❌' : '⬜';
         const cls = step.status || 'pending';
         html += `
-            <div class="step-row ${cls}" onclick="showStepOutput(${i})" title="Click to view step details">
+            <div class="step-row ${cls}" onclick="showStepOutput(${i}, true)" title="Click to view step details">
                 <div class="step-icon">${icon}</div>
                 <div class="step-info">
                     <div class="step-label">${step.label}</div>
@@ -608,11 +609,29 @@ function renderSteps(steps, currentStep, running) {
             </div>`;
     }
     container.innerHTML = html;
+
+    let autoIndex = selectedStepIndex;
+    if (autoIndex < 0 || autoIndex >= steps.length) {
+        autoIndex = steps.findIndex(s => s.id === currentStep);
+    }
+    if (autoIndex < 0) {
+        autoIndex = steps.findIndex(s => s.status === 'error');
+    }
+    if (autoIndex < 0) {
+        autoIndex = steps.findIndex(s => s.status === 'running');
+    }
+    if (autoIndex < 0) {
+        autoIndex = steps.findIndex(s => s.status === 'done');
+    }
+    if (autoIndex >= 0) {
+        showStepOutput(autoIndex, false);
+    }
 }
 
-function showStepOutput(index) {
+function showStepOutput(index, fromClick = false) {
     const step = currentStepsData[index];
     if (!step) return;
+    selectedStepIndex = index;
 
     document.querySelectorAll('.step-row').forEach((el, i) => {
         el.classList.toggle('selected', i === index);
@@ -640,6 +659,10 @@ function showStepOutput(index) {
     }
 
     document.getElementById('outputArea').textContent = output;
+
+    if (fromClick) {
+        document.getElementById('outputArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 function renderPollStatus(poll, monitoring) {

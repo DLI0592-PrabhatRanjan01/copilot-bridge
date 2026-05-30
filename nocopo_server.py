@@ -312,6 +312,36 @@ def normalize_command_for_windows(cmd, cwd):
     return normalized, shell_needed
 
 
+def format_subprocess_output(command, stdout, stderr, exit_code):
+    parts = [f"$ {command}"]
+    if stdout:
+        parts.append(stdout)
+    if stderr:
+        parts.append(f"[STDERR] {stderr}")
+    parts.append(f"Exit: {exit_code}")
+    return "\n".join(parts)
+
+
+def parse_manual_commands(run_command):
+    raw = (run_command or "").strip()
+    if not raw:
+        return False, []
+
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    if not lines:
+        return False, []
+
+    first = lines[0].lower()
+    if first == "parallel::":
+        return True, lines[1:]
+    if first.startswith("parallel::"):
+        head = lines[0][len("parallel::"):].strip()
+        commands = ([head] if head else []) + lines[1:]
+        return True, [c for c in commands if c]
+
+    return False, lines
+
+
 def summarize_status(status):
     if not status:
         return None
@@ -796,18 +826,24 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                 ["git", "pull", "origin", branch],
                 capture_output=True, text=True, cwd=repo_dir, timeout=60
             )
+            pull_output = format_subprocess_output(
+                f"git pull origin {branch}",
+                result.stdout,
+                result.stderr,
+                result.returncode,
+            )
             if result.returncode != 0:
                 ok, fallback_method, fallback_message = clone_or_reuse_repo(repo_url, branch, repo_dir)
                 if not ok:
-                    set_step("pull", "error", f"Pull failed and {fallback_message}")
+                    set_step("pull", "error", f"Pull failed and {fallback_message}", pull_output)
                     return {"success": False, "error": "Pull failed"}
                 pull_method = fallback_method
                 if fallback_method == "clone":
-                    set_step("pull", "done", fallback_message)
+                    set_step("pull", "done", fallback_message, pull_output)
                 else:
-                    set_step("pull", "done", f"Pull failed, reusing existing directory -> {repo_dir}")
+                    set_step("pull", "done", f"Pull failed, reusing existing directory -> {repo_dir}", pull_output)
             else:
-                set_step("pull", "done", f"Pulled latest -> {repo_dir}")
+                set_step("pull", "done", f"Pulled latest -> {repo_dir}", pull_output)
         else:
             ok, fallback_method, fallback_message = clone_or_reuse_repo(repo_url, branch, repo_dir)
             if not ok:
@@ -820,11 +856,17 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                     ["git", "pull", "origin", branch],
                     capture_output=True, text=True, cwd=repo_dir, timeout=60
                 )
+                pull_output = format_subprocess_output(
+                    f"git pull origin {branch}",
+                    result.stdout,
+                    result.stderr,
+                    result.returncode,
+                )
                 if result.returncode != 0:
-                    set_step("pull", "error", f"Pull failed: {(result.stderr or result.stdout or '')[:200]}")
+                    set_step("pull", "error", f"Pull failed: {(result.stderr or result.stdout or '')[:200]}", pull_output)
                     return {"success": False, "error": "Pull failed"}
                 pull_method = "pull"
-                set_step("pull", "done", f"Pulled latest -> {repo_dir}")
+                set_step("pull", "done", f"Pulled latest -> {repo_dir}", pull_output)
             else:
                 pull_method = fallback_method
                 set_step("pull", "done", fallback_message)
@@ -917,19 +959,30 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
 
             # Git add, commit, push
             try:
-                subprocess.run(["git", "add", "-A"], cwd=repo_dir, capture_output=True, text=True, timeout=600)
-                subprocess.run(
+                push_logs = []
+                add_result = subprocess.run(["git", "add", "-A"], cwd=repo_dir, capture_output=True, text=True, timeout=600)
+                push_logs.append(format_subprocess_output("git add -A", add_result.stdout, add_result.stderr, add_result.returncode))
+                if add_result.returncode != 0:
+                    full_push_log = "\n\n".join(push_logs)
+                    set_step("run", "error", "git add failed during modules push", full_push_log)
+                    return {"success": False, "error": "Modules push failed: git add failed"}
+
+                commit_result = subprocess.run(
                     ["git", "commit", "-m", "[NOCOPO] Installed modules (pushed by NOCOPO)"],
                     cwd=repo_dir, capture_output=True, text=True, timeout=300
                 )
+                push_logs.append(format_subprocess_output("git commit -m [NOCOPO] Installed modules (pushed by NOCOPO)", commit_result.stdout, commit_result.stderr, commit_result.returncode))
+
                 push_result = subprocess.run(
                     ["git", "push", "origin", branch],
                     cwd=repo_dir, capture_output=True, text=True, timeout=600
                 )
+                push_logs.append(format_subprocess_output(f"git push origin {branch}", push_result.stdout, push_result.stderr, push_result.returncode))
+                full_push_log = "\n\n".join(push_logs)
                 if push_result.returncode != 0:
-                    set_step("run", "error", f"Push failed: {push_result.stderr[:200]}")
+                    set_step("run", "error", f"Push failed: {push_result.stderr[:200]}", full_push_log)
                     return {"success": False, "error": f"Modules push failed: {push_result.stderr[:200]}"}
-                set_step("run", "done", "Modules pushed to target repo")
+                set_step("run", "done", "Modules pushed to target repo", full_push_log)
             except Exception as e:
                 set_step("run", "error", str(e))
                 return {"success": False, "error": str(e)}
@@ -1020,17 +1073,25 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             pkg_json = os.path.join(repo_dir, "package.json")
             pom_xml = os.path.join(repo_dir, "pom.xml")
             if os.path.exists(req_file):
-                subprocess.run(
+                install_proc = subprocess.run(
                     [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
                     capture_output=True, text=True, timeout=180, cwd=repo_dir
                 )
-                set_step("install", "done", "Python requirements installed")
+                install_output = format_subprocess_output(f"{sys.executable} -m pip install -r {req_file} --quiet", install_proc.stdout, install_proc.stderr, install_proc.returncode)
+                if install_proc.returncode != 0:
+                    set_step("install", "error", "Python install failed", install_output)
+                    return {"success": False, "error": "Python install failed"}
+                set_step("install", "done", "Python requirements installed", install_output)
             elif os.path.exists(pkg_json):
-                subprocess.run(
+                install_proc = subprocess.run(
                     ["npm", "install"], capture_output=True, text=True,
                     timeout=180, cwd=repo_dir, shell=(sys.platform == "win32")
                 )
-                set_step("install", "done", "npm packages installed")
+                install_output = format_subprocess_output("npm install", install_proc.stdout, install_proc.stderr, install_proc.returncode)
+                if install_proc.returncode != 0:
+                    set_step("install", "error", "npm install failed", install_output)
+                    return {"success": False, "error": "npm install failed"}
+                set_step("install", "done", "npm packages installed", install_output)
             elif os.path.exists(pom_xml):
                 if shutil.which("mvn"):
                     mvn = "mvn"
@@ -1038,11 +1099,15 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                     mvn = "mvnw.cmd"
                 else:
                     mvn = "./mvnw"
-                subprocess.run(
+                install_proc = subprocess.run(
                     [mvn, "clean", "install", "-DskipTests", "-q"],
                     capture_output=True, text=True, timeout=300, cwd=repo_dir
                 )
-                set_step("install", "done", "Maven dependencies installed")
+                install_output = format_subprocess_output(f"{mvn} clean install -DskipTests -q", install_proc.stdout, install_proc.stderr, install_proc.returncode)
+                if install_proc.returncode != 0:
+                    set_step("install", "error", "Maven install failed", install_output)
+                    return {"success": False, "error": "Maven install failed"}
+                set_step("install", "done", "Maven dependencies installed", install_output)
             else:
                 set_step("install", "done", "No dependencies found (skipped)")
             detected_services = []
@@ -1057,18 +1122,22 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                     ok, msg = install_service(svc)
                     install_msgs.append(f"{svc['name']}({svc['type']}): {msg}")
                     if not ok:
-                        set_step("install", "error", f"Install failed for {svc['name']}: {msg}")
+                        set_step("install", "error", f"Install failed for {svc['name']}: {msg}", "\n".join(install_msgs))
                         return {"success": False, "error": f"Install failed: {msg}"}
-                set_step("install", "done", " | ".join(install_msgs))
+                set_step("install", "done", " | ".join(install_msgs), "\n".join(install_msgs))
             else:
                 # Fallback: try basic install
                 req_file = os.path.join(repo_dir, "requirements.txt")
                 if os.path.exists(req_file):
-                    subprocess.run(
+                    install_proc = subprocess.run(
                         [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
                         capture_output=True, text=True, timeout=180, cwd=repo_dir
                     )
-                    set_step("install", "done", "Python requirements installed")
+                    install_output = format_subprocess_output(f"{sys.executable} -m pip install -r {req_file} --quiet", install_proc.stdout, install_proc.stderr, install_proc.returncode)
+                    if install_proc.returncode != 0:
+                        set_step("install", "error", "Python install failed", install_output)
+                        return {"success": False, "error": "Python install failed"}
+                    set_step("install", "done", "Python requirements installed", install_output)
                 else:
                     set_step("install", "done", "No dependencies detected (skipped)")
 
@@ -1082,56 +1151,96 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
 
         if run_mode == "manual" and run_cmd:
             # Manual mode: run command(s) specified by user
-            # Chain multiple commands with && for sequential execution (preserves directory changes)
+            # Supports:
+            #   - sequential commands (default, line-by-line with && chaining)
+            #   - parallel commands by starting run_command with "parallel::"
+            parallel_mode, command_lines = parse_manual_commands(run_cmd)
+            if not command_lines:
+                set_step("run", "error", "No valid manual commands found")
+                return {"success": False, "error": "No valid manual commands found"}
+
             all_outputs.append(f"=== Working Dir: {repo_dir} ===")
             all_outputs.append(f"=== Commands ===")
-            for line in run_cmd.strip().split("\n"):
-                if line.strip():
-                    all_outputs.append(f"  {line.strip()}")
+            for line in command_lines:
+                all_outputs.append(f"  {line}")
             all_outputs.append("")
 
-            # Join commands with && to run sequentially in one shell session
-            # This preserves directory changes across commands
-            chained_cmd = " && ".join(line.strip() for line in run_cmd.strip().split("\n") if line.strip())
+            if parallel_mode:
+                set_step("run", "running", f"Starting {len(command_lines)} commands in parallel...")
+                update_bridge_progress("run", "Starting parallel commands...")
+                try:
+                    started = []
+                    for cmd_line in command_lines:
+                        if sys.platform == "win32":
+                            proc = subprocess.Popen(
+                                ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", cmd_line],
+                                cwd=repo_dir,
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL,
+                                shell=False,
+                            )
+                        else:
+                            proc = subprocess.Popen(
+                                cmd_line,
+                                cwd=repo_dir,
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL,
+                                shell=True,
+                            )
+                        started.append((cmd_line, proc.pid))
 
-            set_step("run", "running", f"Running {len([l for l in run_cmd.strip().split(chr(10)) if l.strip()])} commands sequentially...")
-            update_bridge_progress("run", "Running chained commands...")
+                    all_outputs.append("=== Parallel launch result ===")
+                    for cmd_line, pid in started:
+                        all_outputs.append(f"STARTED pid={pid} :: {cmd_line}")
+                    all_outputs.append("Commands started in background. Use Custom Command Runner to stop them if needed.")
+                    exit_code = 0
+                    run_status = "STARTED"
+                except Exception as e:
+                    all_outputs.append(f"[ERROR] {str(e)}")
+                    exit_code = -1
+                    run_status = "ERROR"
+            else:
+                # Join commands with && to run sequentially in one shell session
+                chained_cmd = " && ".join(command_lines)
 
-            try:
-                if sys.platform == "win32":
-                    # Use PowerShell for Windows to handle && properly
-                    cmd_args = ["powershell", "-NoProfile", "-NonInteractive",
-                               "-ExecutionPolicy", "Bypass", "-Command", chained_cmd]
-                    proc = subprocess.run(
-                        cmd_args, capture_output=True, text=True,
-                        timeout=timeout_sec, cwd=repo_dir, shell=False
-                    )
-                else:
-                    # Use shell for Linux/Mac
-                    proc = subprocess.run(
-                        chained_cmd, capture_output=True, text=True,
-                        timeout=timeout_sec, cwd=repo_dir, shell=True
-                    )
+                set_step("run", "running", f"Running {len(command_lines)} commands sequentially...")
+                update_bridge_progress("run", "Running chained commands...")
 
-                exit_code = proc.returncode
-                if proc.stdout:
-                    all_outputs.append(proc.stdout)
-                if proc.stderr:
-                    all_outputs.append(f"[STDERR] {proc.stderr}")
-                all_outputs.append(f"--- Exit Code: {exit_code} ---")
+                try:
+                    if sys.platform == "win32":
+                        # Use PowerShell for Windows to handle && properly
+                        cmd_args = ["powershell", "-NoProfile", "-NonInteractive",
+                                   "-ExecutionPolicy", "Bypass", "-Command", chained_cmd]
+                        proc = subprocess.run(
+                            cmd_args, capture_output=True, text=True,
+                            timeout=timeout_sec, cwd=repo_dir, shell=False
+                        )
+                    else:
+                        # Use shell for Linux/Mac
+                        proc = subprocess.run(
+                            chained_cmd, capture_output=True, text=True,
+                            timeout=timeout_sec, cwd=repo_dir, shell=True
+                        )
 
-                if exit_code != 0:
-                    run_status = "FAILED"
-                else:
-                    run_status = "SUCCESS"
-            except subprocess.TimeoutExpired:
-                all_outputs.append(f"[TIMEOUT] Commands timed out after {timeout_sec}s")
-                exit_code = -1
-                run_status = "TIMEOUT"
-            except Exception as e:
-                all_outputs.append(f"[ERROR] {str(e)}")
-                exit_code = -1
-                run_status = "ERROR"
+                    exit_code = proc.returncode
+                    if proc.stdout:
+                        all_outputs.append(proc.stdout)
+                    if proc.stderr:
+                        all_outputs.append(f"[STDERR] {proc.stderr}")
+                    all_outputs.append(f"--- Exit Code: {exit_code} ---")
+
+                    if exit_code != 0:
+                        run_status = "FAILED"
+                    else:
+                        run_status = "SUCCESS"
+                except subprocess.TimeoutExpired:
+                    all_outputs.append(f"[TIMEOUT] Commands timed out after {timeout_sec}s")
+                    exit_code = -1
+                    run_status = "TIMEOUT"
+                except Exception as e:
+                    all_outputs.append(f"[ERROR] {str(e)}")
+                    exit_code = -1
+                    run_status = "ERROR"
 
             full_cmd_output = "\n".join(all_outputs)
             if run_status == "FAILED":
@@ -1318,18 +1427,29 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             commit_msg = f"[NOCOPO] Output iteration {iteration} ({run_status}) - {file_names}"
 
         # Single commit for all files
+        push_log_lines = [
+            f"Repo: {bridge_repo}",
+            f"Branch: {config['branch']}",
+            f"Commit message: {commit_msg}",
+            "Files:",
+        ]
+        push_log_lines.extend([f"- {f['path']}" for f in files_to_push])
         success = push_multiple_files(bridge_repo, files_to_push, commit_msg)
         if not success:
             # Fallback: push files individually
             all_ok = True
             for f in files_to_push:
-                if not push_file(bridge_repo, f["path"], f["content"], commit_msg):
+                ok = push_file(bridge_repo, f["path"], f["content"], commit_msg)
+                push_log_lines.append(f"fallback push {f['path']}: {'OK' if ok else 'FAILED'}")
+                if not ok:
                     all_ok = False
             if not all_ok:
-                set_step("push_output", "error", "Failed to push output")
+                set_step("push_output", "error", "Failed to push output", "\n".join(push_log_lines))
                 return {"success": False, "error": "Push output failed"}
+        else:
+            push_log_lines.append("single-commit push via Git Data API: OK")
 
-        set_step("push_output", "done", f"Pushed {len(files_to_push)} files in 1 commit (iter {iteration})")
+        set_step("push_output", "done", f"Pushed {len(files_to_push)} files in 1 commit (iter {iteration})", "\n".join(push_log_lines))
 
         bridge_head_after = get_latest_commit(bridge_repo)
         nocopo_state["transfer_info"].update({
@@ -1549,19 +1669,64 @@ class NocopoHandler(BaseHTTPRequestHandler):
             body = self._read_body()
             command = body.get("command", "").strip()
             cwd = body.get("cwd", "").strip() or None
-            timeout_sec = int(body.get("timeout", 60))
+            timeout_sec = int(body.get("timeout", 1800))
             if not command:
                 self._json_response({"error": "No command provided"}, 400)
                 return
 
             def _exec_custom_command(cmd_str, working_dir, t_sec):
                 try:
-                    proc = subprocess.run(
-                        cmd_str, capture_output=True, text=True,
-                        timeout=t_sec, cwd=working_dir, shell=True
-                    )
+                    parallel_mode, command_lines = parse_manual_commands(cmd_str)
+                    if parallel_mode and command_lines:
+                        started = []
+                        for line in command_lines:
+                            if sys.platform == "win32":
+                                proc = subprocess.Popen(
+                                    ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", line],
+                                    cwd=working_dir,
+                                    stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL,
+                                    shell=False,
+                                )
+                            else:
+                                proc = subprocess.Popen(
+                                    line,
+                                    cwd=working_dir,
+                                    stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL,
+                                    shell=True,
+                                )
+                            started.append({"command": line, "pid": proc.pid})
+
+                        nocopo_state["custom_command_result"] = {
+                            "command": cmd_str,
+                            "cwd": working_dir or os.getcwd(),
+                            "stdout": "\n".join([f"STARTED pid={x['pid']} :: {x['command']}" for x in started]),
+                            "stderr": "",
+                            "exit_code": 0,
+                            "status": "STARTED",
+                            "completed_at": datetime.now().isoformat(),
+                            "mode": "parallel",
+                        }
+                        return
+
+                    effective_lines = command_lines if command_lines else [cmd_str]
+                    effective_cmd = " && ".join(effective_lines)
+
+                    if sys.platform == "win32":
+                        proc = subprocess.run(
+                            ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", effective_cmd],
+                            capture_output=True, text=True,
+                            timeout=t_sec, cwd=working_dir, shell=False
+                        )
+                    else:
+                        proc = subprocess.run(
+                            effective_cmd, capture_output=True, text=True,
+                            timeout=t_sec, cwd=working_dir, shell=True
+                        )
                     nocopo_state["custom_command_result"] = {
                         "command": cmd_str,
+                        "effective_command": effective_cmd,
                         "cwd": working_dir or os.getcwd(),
                         "stdout": proc.stdout,
                         "stderr": proc.stderr,
