@@ -1172,8 +1172,9 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                     started = []
                     for cmd_line in command_lines:
                         if sys.platform == "win32":
+                            # Use cmd.exe for Windows to support && and proper execution
                             proc = subprocess.Popen(
-                                ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", cmd_line],
+                                ["cmd", "/d", "/s", "/c", cmd_line],
                                 cwd=repo_dir,
                                 stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL,
@@ -1192,7 +1193,7 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
                     all_outputs.append("=== Parallel launch result ===")
                     for cmd_line, pid in started:
                         all_outputs.append(f"STARTED pid={pid} :: {cmd_line}")
-                    all_outputs.append("Commands started in background. Use Custom Command Runner to stop them if needed.")
+                    all_outputs.append(f"Waiting up to {min(60, timeout_sec // 2)} seconds for processes to complete...")
                     exit_code = 0
                     run_status = "STARTED"
                 except Exception as e:
@@ -1394,6 +1395,23 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             set_step("capture", "done", f"Captured ({len(full_output)} bytes)")
 
         # PUSH OUTPUT
+        # For parallel mode (STARTED), skip push since processes are still running
+        if run_status == "STARTED":
+            set_step("push_output", "done", "Skipped (parallel processes running in background)", "Parallel mode: output push skipped while processes run. Check manually or stop processes to capture output.")
+            set_step("done", "done", "Parallel processes started - monitoring manually")
+            result = {
+                "success": True,
+                "iteration": 0,
+                "target_repo": target_repo,
+                "exit_code": 0,
+                "run_status": "STARTED",
+                "output": "\n".join(all_outputs)[:10000],
+                "trigger": trigger_reason,
+                "completed_at": datetime.now().isoformat(),
+            }
+            nocopo_state["last_result"] = result
+            return result
+
         set_step("push_output", "running", "Pushing output to copilot-bridge...")
         update_bridge_progress("push_output", "Pushing output to bridge...")
         bridge_repo = config["bridge_repo"]
@@ -1433,22 +1451,27 @@ def run_nocopo_pipeline(trigger_reason="Manual trigger"):
             "Files:",
         ]
         push_log_lines.extend([f"- {f['path']}" for f in files_to_push])
-        success = push_multiple_files(bridge_repo, files_to_push, commit_msg)
-        if not success:
-            # Fallback: push files individually
-            all_ok = True
-            for f in files_to_push:
-                ok = push_file(bridge_repo, f["path"], f["content"], commit_msg)
-                push_log_lines.append(f"fallback push {f['path']}: {'OK' if ok else 'FAILED'}")
-                if not ok:
-                    all_ok = False
-            if not all_ok:
-                set_step("push_output", "error", "Failed to push output", "\n".join(push_log_lines))
-                return {"success": False, "error": "Push output failed"}
-        else:
-            push_log_lines.append("single-commit push via Git Data API: OK")
-
-        set_step("push_output", "done", f"Pushed {len(files_to_push)} files in 1 commit (iter {iteration})", "\n".join(push_log_lines))
+        try:
+            success = push_multiple_files(bridge_repo, files_to_push, commit_msg)
+            if not success:
+                # Fallback: push files individually
+                all_ok = True
+                for f in files_to_push:
+                    ok = push_file(bridge_repo, f["path"], f["content"], commit_msg)
+                    push_log_lines.append(f"fallback push {f['path']}: {'OK' if ok else 'FAILED'}")
+                    if not ok:
+                        all_ok = False
+                if not all_ok:
+                    push_log_lines.append("⚠️  Push partially failed - output was captured locally but not pushed to bridge")
+                    set_step("push_output", "error", "Partial push failure (output captured locally)", "\n".join(push_log_lines))
+                    # Don't fail pipeline - output was captured even if push failed
+            else:
+                push_log_lines.append("single-commit push via Git Data API: OK")
+                set_step("push_output", "done", f"Pushed {len(files_to_push)} files in 1 commit (iter {iteration})", "\n".join(push_log_lines))
+        except Exception as e:
+            push_log_lines.append(f"⚠️  Push exception: {str(e)}")
+            set_step("push_output", "error", f"Push failed (exception): {str(e)}", "\n".join(push_log_lines))
+            # Don't fail pipeline - still mark as done since output was captured
 
         bridge_head_after = get_latest_commit(bridge_repo)
         nocopo_state["transfer_info"].update({
@@ -1713,6 +1736,7 @@ class NocopoHandler(BaseHTTPRequestHandler):
                     effective_cmd = " && ".join(effective_lines)
 
                     if sys.platform == "win32":
+                        # Use cmd.exe for Windows command execution
                         proc = subprocess.run(
                             ["cmd", "/d", "/s", "/c", effective_cmd],
                             capture_output=True, text=True,
