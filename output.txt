@@ -1,23 +1,29 @@
 === Target: naukri-automation ===
-=== Run Mode: auto ===
+=== Run Mode: manual ===
 === Repo Cloned At: c:\Users\prabh\naukri-automation\naukri-automation ===
 === Python Interpreter: C:\Program Files\PostgreSQL\16\pgAdmin 4\python\python.exe ===
-=== Timestamp: 2026-05-30T20:25:49.304526 ===
-=== Detected: backend(springboot), frontend(react) ===
+=== Timestamp: 2026-05-30T20:27:45.883239 ===
 
 === OUTPUT ===
-=== Service: backend (springboot) ===
-=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation\backend ===
-=== Command: mvn spring-boot:run ===
-[STDERR] [WinError 2] The system cannot find the file specified
-=== Exit: -1 (ERROR) ===
+=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation ===
+=== Commands ===
+  cd c:\Users\prabh\naukri-automation\frontend
+  npm i
+  npm start
 
-=== Service: frontend (react) ===
-=== Working Dir: c:\Users\prabh\naukri-automation\naukri-automation\frontend ===
-=== Command: npm run build ===
-[STDERR] [WinError 2] The system cannot find the file specified
-=== Exit: -1 (ERROR) ===
+[STDERR] At line:1 char:46
++ cd c:\Users\prabh\naukri-automation\frontend && npm i && npm start
++                                              ~~
+The token '&&' is not a valid statement separator in this version.
+At line:1 char:55
++ cd c:\Users\prabh\naukri-automation\frontend && npm i && npm start
++                                                       ~~
+The token '&&' is not a valid statement separator in this version.
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : InvalidEndOfLine
+ 
 
+--- Exit Code: 1 ---
 
-=== EXIT CODE: -1 ===
-=== STATUS: ERROR ===
+=== EXIT CODE: 1 ===
+=== STATUS: FAILED ===
