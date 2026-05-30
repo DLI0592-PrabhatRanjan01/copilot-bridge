@@ -7,7 +7,7 @@
   "skip_steps": [],
   "timestamp": "2026-05-30T19:48:41.803507",
   "message": "Output ready (ERROR)",
-  "nocopo_step": "run",
-  "nocopo_message": "Running command 5/5: npm start",
-  "nocopo_updated_at": "2026-05-30T19:50:20.454756"
+  "nocopo_step": "capture",
+  "nocopo_message": "Capturing output...",
+  "nocopo_updated_at": "2026-05-30T19:50:24.027466"
 }
