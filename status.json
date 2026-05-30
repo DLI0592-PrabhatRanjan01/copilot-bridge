@@ -12,6 +12,6 @@
   "modules_command": "",
   "message": "Code pushed from naukri-automation",
   "nocopo_step": "install",
-  "nocopo_message": "Installing dependencies...",
-  "nocopo_updated_at": "2026-05-30T18:43:19.499454"
+  "nocopo_message": "Installing backend (springboot)...",
+  "nocopo_updated_at": "2026-05-30T18:43:21.114362"
 }
